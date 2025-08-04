@@ -1,0 +1,16 @@
+.rb {
+  color: #1e90ff;
+} /* blue   */
+.wr {
+  color: #ff0000;
+} /* red    */
+.te {
+  color: #d4af37;
+} /* gold   */
+.qb {
+  color: #000000;
+} /* black  */
+li:hover {
+  text-decoration: line-through;
+  cursor: pointer;
+}
