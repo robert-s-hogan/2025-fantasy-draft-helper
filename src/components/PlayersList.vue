@@ -232,12 +232,6 @@ const displayList = computed<DisplayItem[]>(() => {
         >
           Reset
         </button>
-        <button
-          @click="store.shuffle()"
-          class="px-4 py-1 border border-yellow-500 bg-yellow-50 text-yellow-700 rounded-md text-sm font-medium hover:bg-yellow-100 transition focus:outline-none focus:ring-2 focus:ring-yellow-300"
-        >
-          Shuffle
-        </button>
       </div>
     </div>
 
