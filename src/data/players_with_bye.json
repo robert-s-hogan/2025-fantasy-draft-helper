@@ -1,0 +1,201 @@
+[
+  {
+    "rank": 1,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1,
+    "team": "PHI",
+    "newRank": 1,
+    "change": 0,
+    "bye": 9
+  },
+  {
+    "rank": 2,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2,
+    "team": "ATL",
+    "newRank": 2,
+    "change": 0,
+    "bye": 5
+  },
+  {
+    "rank": 3,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3,
+    "team": "DET",
+    "newRank": 3,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 4,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1,
+    "team": "CIN",
+    "newRank": 4,
+    "change": 0,
+    "bye": 10
+  },
+  {
+    "rank": 5,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2,
+    "team": "MIN",
+    "newRank": 5,
+    "change": 0,
+    "bye": 6
+  },
+  {
+    "rank": 6,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3,
+    "team": "DAL",
+    "newRank": 6,
+    "change": 0,
+    "bye": 10
+  },
+  {
+    "rank": 7,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4,
+    "team": "BAL",
+    "newRank": 7,
+    "change": 0,
+    "bye": 7
+  },
+  {
+    "rank": 8,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5,
+    "team": "SF",
+    "newRank": 8,
+    "change": 0,
+    "bye": 14
+  },
+  {
+    "rank": 9,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4,
+    "team": "LAR",
+    "newRank": 9,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 10,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5,
+    "team": "HOU",
+    "newRank": 10,
+    "change": 0,
+    "bye": 6
+  },
+  {
+    "rank": 11,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6,
+    "team": "DET",
+    "newRank": 11,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 12,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7,
+    "team": "NYG",
+    "newRank": 12,
+    "change": 0,
+    "bye": 14
+  },
+  {
+    "rank": 13,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6,
+    "team": "GB",
+    "newRank": 13,
+    "change": 0,
+    "bye": 5
+  },
+  {
+    "rank": 14,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7,
+    "team": "IND",
+    "newRank": 14,
+    "change": 0,
+    "bye": 11
+  },
+  {
+    "rank": 15,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8,
+    "team": "PHI",
+    "newRank": 15,
+    "change": 0,
+    "bye": 9
+  },
+  {
+    "rank": 16,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9,
+    "team": "JAX",
+    "newRank": 16,
+    "change": 0
+  },
+  {
+    "rank": 17,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8,
+    "team": "NYJ",
+    "newRank": 17,
+    "change": 0,
+    "bye": 9
+  },
+  {
+    "rank": 18,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9,
+    "team": "LV",
+    "newRank": 18,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 19,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10,
+    "team": "SEA",
+    "newRank": 19,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 20,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10,
+    "team": "LAR",
+    "newRank": 20,
+    "change": 0,
+    "bye": 8
+  }
+]

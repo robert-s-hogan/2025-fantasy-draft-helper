@@ -17,27 +17,30 @@ function onDraftedByOthers() {
 </script>
 
 <template>
-  <!-- Row itself is inert; only buttons are clickable -->
-  <tr class="select-none cursor-default pointer-events-none">
+  <!-- Color the ENTIRE ROW by position -->
+  <tr
+    class="select-none cursor-default"
+    :class="props.player.position.toLowerCase()"
+  >
     <!-- Pick -->
-    <td class="border-b border-gray-200 px-4 py-2 text-sm align-middle">
+    <td
+      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+    >
       {{ props.player.rank }}
     </td>
 
     <!-- Player + buttons -->
-    <td class="border-b border-gray-200 px-4 py-2 text-sm align-middle">
-      <!-- APPLY POSITION BACKGROUND HERE -->
-      <div
-        class="flex items-center gap-2 rounded px-2 py-1 pointer-events-auto"
-        :class="[props.player.position.toLowerCase(), 'text-slate-900']"
-      >
+    <td
+      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+    >
+      <div class="flex items-center gap-2 px-2 py-1 text-slate-900">
         <span class="truncate">{{ props.player.name }}</span>
 
-        <div class="ml-auto flex gap-2">
+        <div class="ml-auto flex gap-3">
           <button
             type="button"
             @click="onMyTeam"
-            class="px-2 py-1 border rounded text-xs font-medium transition bg-blue-600 text-white border-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            class="px-3.5 py-1.5 border rounded-md text-sm font-semibold transition bg-blue-600 text-white border-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             aria-label="Add to My Team"
             title="Add to My Team"
           >
@@ -47,7 +50,7 @@ function onDraftedByOthers() {
           <button
             type="button"
             @click="onDraftedByOthers"
-            class="px-2 py-1 border rounded text-xs font-medium transition bg-white text-gray-700 border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            class="px-3.5 py-1.5 border rounded-md text-sm font-medium transition bg-white text-slate-700 border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
             aria-label="Mark Drafted by Others"
             title="Mark Drafted by Others"
           >
@@ -57,13 +60,14 @@ function onDraftedByOthers() {
       </div>
     </td>
 
-    <!-- Pos chip (keeps your existing colors) -->
-    <td class="border-b border-gray-200 px-4 py-2 text-sm align-middle">
+    <!-- Pos chip -->
+    <td
+      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+    >
       <span
         :class="[
-          'px-2 py-0.5 rounded text-[10px] font-semibold',
-          props.player.position.toLowerCase(), // uses .rb/.wr/.qb/.te
-          'text-slate-900',
+          'px-2 py-0.5 rounded text-[10px] font-semibold text-slate-900',
+          props.player.position.toLowerCase(),
         ]"
       >
         {{ props.player.position }}
@@ -71,3 +75,27 @@ function onDraftedByOthers() {
     </td>
   </tr>
 </template>
+
+<style>
+/* Shared position colors (used on <tr> and on the little chip).
+   Keep UNSCOPED if you color rows from another component. */
+.rb {
+  background-color: #c9dcf3;
+} /* Light Blue  */
+.wr {
+  background-color: #a3f5b1;
+} /* Mint Green  */
+.te {
+  background-color: #fdf1b2;
+} /* Pastel Yellow */
+.qb {
+  background-color: #fca7a3;
+} /* Salmon Red   */
+.def {
+  background-color: #d5ba6f;
+} /* Muted Gold   */
+.pk,
+.k {
+  background-color: #f5baf4;
+} /* Pink/Purple */
+</style>
