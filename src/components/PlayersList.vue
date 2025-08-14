@@ -93,26 +93,6 @@ const displayList = computed<DisplayItem[]>(() => {
       <span class="ml-auto opacity-80">Draft Board</span>
     </div>
 
-    <!-- Excel-style tabs -->
-    <div class="bg-slate-100 border-x border-t border-slate-300 px-2">
-      <div class="flex items-end gap-1">
-        <button
-          class="px-3 py-2 text-sm font-medium bg-white border border-slate-300 rounded-t-md shadow-sm"
-        >
-          Home
-        </button>
-        <button class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Insert
-        </button>
-        <button class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Layout
-        </button>
-        <button class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">
-          View
-        </button>
-      </div>
-    </div>
-
     <!-- Ribbon area (Teams + Reset) -->
     <div class="bg-white border border-slate-300 rounded-b-md px-3 py-2">
       <div class="flex flex-wrap items-center gap-3">
@@ -167,9 +147,9 @@ const displayList = computed<DisplayItem[]>(() => {
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
           My Team&nbsp;
-          <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded">
-            {{ draftedCount }} of 15
-          </span>
+          <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded"
+            >{{ draftedCount }} of 15</span
+          >
         </h2>
 
         <DraftSlotRandomizer
@@ -183,7 +163,6 @@ const displayList = computed<DisplayItem[]>(() => {
       <div class="mt-3 grid grid-cols-2 gap-3">
         <!-- Starters -->
         <div class="space-y-2">
-          <!-- QB -->
           <div
             :class="[
               'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
@@ -192,22 +171,26 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">QB</span>
-            <template v-if="roster.QB"
-              ><span class="text-sm truncate max-w-[12rem]">{{
-                roster.QB.name
-              }}</span></template
-            >
+            <template v-if="roster.QB">
+              <span class="text-sm truncate max-w-[12rem]">
+                {{ roster.QB.name }}
+              </span>
+              <span
+                v-if="roster.QB.team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ roster.QB.team }}
+              </span>
+            </template>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
-          <!-- WR1..WR3 -->
           <div
             v-for="id in ['WR1', 'WR2', 'WR3']"
             :key="id"
             :class="[
               'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
-              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100',
-              'text-slate-900'
+              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100','text-slate-900'
             ]"
           >
             <span class="text-xs tracking-wide">WR</span>
@@ -219,14 +202,12 @@ const displayList = computed<DisplayItem[]>(() => {
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
-          <!-- RB1..RB2 -->
           <div
             v-for="id in ['RB1', 'RB2']"
             :key="id"
             :class="[
               'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
-              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100',
-              'text-slate-900'
+              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100','text-slate-900'
             ]"
           >
             <span class="text-xs tracking-wide">RB</span>
@@ -238,7 +219,6 @@ const displayList = computed<DisplayItem[]>(() => {
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
-          <!-- TE -->
           <div
             :class="[
               'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
@@ -269,11 +249,21 @@ const displayList = computed<DisplayItem[]>(() => {
                 'text-slate-900',
               ]"
             >
-              <span class="truncate text-sm">{{ p.name }}</span>
+              <span class="truncate text-sm">
+                {{ p.name }}
+              </span>
+              <span
+                v-if="p.team"
+                class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10 uppercase"
+              >
+                {{ p.team }}
+              </span>
               <span
                 class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10"
-                >{{ p.position }}</span
               >
+                <!-- show QB1/WR3/etc using the same logic -->
+                {{ p.posRank ? `${p.position}${p.posRank}` : p.position }}
+              </span>
             </div>
 
             <div
@@ -290,25 +280,37 @@ const displayList = computed<DisplayItem[]>(() => {
       <table
         class="min-w-full table-fixed border-collapse border border-slate-300"
       >
-        <thead class="bg-slate-100 sticky top-0 z-10">
+        <thead class="bg-slate-100 sticky top-0 z-10 text-xs">
           <tr class="select-none">
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
             >
-              Pick
+              #
             </th>
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            >
+              Δ
+            </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-left text-xs font-semibold"
             >
               Player
             </th>
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            >
+              Team
+            </th>
+            <!-- NEW -->
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
             >
               Pos
             </th>
           </tr>
         </thead>
+
         <tbody>
           <template
             v-for="item in displayList"
@@ -317,7 +319,7 @@ const displayList = computed<DisplayItem[]>(() => {
             <!-- Round header -->
             <tr v-if="item.type === 'header'">
               <td
-                colspan="3"
+                colspan="5"
                 class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
               >
                 Round {{ item.round }}
@@ -344,9 +346,7 @@ tbody tr:hover {
   outline: 2px solid rgba(0, 0, 0, 0.15);
   outline-offset: -2px;
 }
-
-/* Position colors duplicated here so the view still works in isolation.
-   If you centralize them globally, you can delete this block. */
+/* Position colors (kept here so page works in isolation) */
 .rb {
   background-color: #c9dcf3;
 }

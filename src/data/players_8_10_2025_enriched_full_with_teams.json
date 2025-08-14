@@ -382,7 +382,7 @@
     "previousRank": 35,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "CHI"
   },
   {
     "rank": 36.0,
@@ -679,7 +679,7 @@
     "previousRank": 63,
     "rankChange": 1.0,
     "bye": null,
-    "team": null
+    "team": "NYG"
   },
   {
     "rank": 63.0,
@@ -833,7 +833,7 @@
     "previousRank": 75,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "JAC"
   },
   {
     "rank": 77.0,
@@ -877,7 +877,7 @@
     "previousRank": 79,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "TB"
   },
   {
     "rank": 81.0,
@@ -987,7 +987,7 @@
     "previousRank": 89,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "JAC"
   },
   {
     "rank": 91.0,
@@ -1031,7 +1031,7 @@
     "previousRank": 93,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "DEN"
   },
   {
     "rank": 95.0,
@@ -1042,7 +1042,7 @@
     "previousRank": 94,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "CLE"
   },
   {
     "rank": 96.0,
@@ -1075,7 +1075,7 @@
     "previousRank": 97,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "SEA"
   },
   {
     "rank": 99.0,
@@ -1086,7 +1086,7 @@
     "previousRank": 99,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "LAC"
   },
   {
     "rank": 100.0,
@@ -1108,7 +1108,7 @@
     "previousRank": 100,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "LAC"
   },
   {
     "rank": 102.0,
@@ -1141,7 +1141,7 @@
     "previousRank": 103,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "NE"
   },
   {
     "rank": 105.0,
@@ -1152,7 +1152,7 @@
     "previousRank": 104,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "MIN"
   },
   {
     "rank": 106.0,
@@ -1163,7 +1163,7 @@
     "previousRank": 105,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "SF"
   },
   {
     "rank": 107.0,
@@ -1174,7 +1174,7 @@
     "previousRank": 107,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "DAL"
   },
   {
     "rank": 108.0,
@@ -1185,7 +1185,7 @@
     "previousRank": 108,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "MIA"
   },
   {
     "rank": 109.0,
@@ -1196,7 +1196,7 @@
     "previousRank": 109,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "BUF"
   },
   {
     "rank": 110.0,
@@ -1207,7 +1207,7 @@
     "previousRank": 110,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "CHI"
   },
   {
     "rank": 111.0,
@@ -1218,7 +1218,7 @@
     "previousRank": 111,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "IND"
   },
   {
     "rank": 112.0,
@@ -1229,7 +1229,7 @@
     "previousRank": 112,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "BUF"
   },
   {
     "rank": 113.0,
@@ -1273,7 +1273,7 @@
     "previousRank": 117,
     "rankChange": 1.0,
     "bye": null,
-    "team": null
+    "team": "HOU"
   },
   {
     "rank": 117.0,
@@ -1328,7 +1328,7 @@
     "previousRank": 123,
     "rankChange": 2.0,
     "bye": null,
-    "team": null
+    "team": "ATL"
   },
   {
     "rank": 122.0,
@@ -1339,7 +1339,7 @@
     "previousRank": 124,
     "rankChange": 2.0,
     "bye": null,
-    "team": null
+    "team": "NYG"
   },
   {
     "rank": 123.0,
@@ -1350,7 +1350,7 @@
     "previousRank": 125,
     "rankChange": 2.0,
     "bye": null,
-    "team": null
+    "team": "LAR"
   },
   {
     "rank": 124.0,
@@ -1361,7 +1361,7 @@
     "previousRank": 126,
     "rankChange": 2.0,
     "bye": null,
-    "team": null
+    "team": "CAR"
   },
   {
     "rank": 125.0,
@@ -1405,7 +1405,7 @@
     "previousRank": 191,
     "rankChange": 63.0,
     "bye": null,
-    "team": null
+    "team": "NE"
   },
   {
     "rank": 129.0,
@@ -1427,7 +1427,7 @@
     "previousRank": 131,
     "rankChange": 1.0,
     "bye": null,
-    "team": null
+    "team": "GB"
   },
   {
     "rank": 131.0,
@@ -1449,7 +1449,7 @@
     "previousRank": 133,
     "rankChange": 1.0,
     "bye": null,
-    "team": null
+    "team": "PHI"
   },
   {
     "rank": 133.0,
@@ -1471,7 +1471,7 @@
     "previousRank": 87,
     "rankChange": -47.0,
     "bye": null,
-    "team": null
+    "team": "PIT"
   },
   {
     "rank": 135.0,
@@ -1482,7 +1482,7 @@
     "previousRank": 135,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "ARI"
   },
   {
     "rank": 136.0,
@@ -1493,7 +1493,7 @@
     "previousRank": 137,
     "rankChange": 1.0,
     "bye": null,
-    "team": null
+    "team": "CLE"
   },
   {
     "rank": 137.0,
@@ -1504,7 +1504,7 @@
     "previousRank": 106,
     "rankChange": -31.0,
     "bye": null,
-    "team": null
+    "team": "TEN"
   },
   {
     "rank": 138.0,
@@ -1515,7 +1515,7 @@
     "previousRank": 138,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "BAL"
   },
   {
     "rank": 139.0,
@@ -1526,7 +1526,7 @@
     "previousRank": 139,
     "rankChange": 0.0,
     "bye": null,
-    "team": null
+    "team": "NYJ"
   },
   {
     "rank": 140.0,
@@ -1537,7 +1537,7 @@
     "previousRank": 136,
     "rankChange": -4.0,
     "bye": null,
-    "team": null
+    "team": "SF"
   },
   {
     "rank": 141.0,
@@ -1570,7 +1570,7 @@
     "previousRank": 142,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "TB"
   },
   {
     "rank": 144.0,
@@ -1625,7 +1625,7 @@
     "previousRank": 147,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "HOU"
   },
   {
     "rank": 149.0,
@@ -1636,7 +1636,7 @@
     "previousRank": 148,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "CAR"
   },
   {
     "rank": 150.0,
@@ -1647,7 +1647,7 @@
     "previousRank": 149,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "BAL"
   },
   {
     "rank": 151.0,
@@ -1658,7 +1658,7 @@
     "previousRank": 150,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "GB"
   },
   {
     "rank": 152.0,
@@ -1669,7 +1669,7 @@
     "previousRank": 151,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "IND"
   },
   {
     "rank": 153.0,
@@ -1680,7 +1680,7 @@
     "previousRank": 152,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "NO"
   },
   {
     "rank": 154.0,
@@ -1691,7 +1691,7 @@
     "previousRank": 153,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "HOU"
   },
   {
     "rank": 155.0,
@@ -1702,7 +1702,7 @@
     "previousRank": 154,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "KC"
   },
   {
     "rank": 156.0,
@@ -1713,7 +1713,7 @@
     "previousRank": 155,
     "rankChange": -1.0,
     "bye": null,
-    "team": null
+    "team": "GB"
   },
   {
     "rank": 157.0,
@@ -1724,7 +1724,7 @@
     "previousRank": 200,
     "rankChange": 43.0,
     "bye": null,
-    "team": null
+    "team": "SF"
   },
   {
     "rank": 158.0,
@@ -1735,7 +1735,7 @@
     "previousRank": 122,
     "rankChange": -36.0,
     "bye": null,
-    "team": null
+    "team": "CLE"
   },
   {
     "rank": 159.0,
@@ -1746,7 +1746,7 @@
     "previousRank": 156,
     "rankChange": -3.0,
     "bye": null,
-    "team": null
+    "team": "CAR"
   },
   {
     "rank": 160.0,
@@ -1757,7 +1757,7 @@
     "previousRank": 157,
     "rankChange": -3.0,
     "bye": null,
-    "team": null
+    "team": "PHI"
   },
   {
     "rank": 161,
@@ -1768,7 +1768,7 @@
     "previousRank": 181,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "BUF"
   },
   {
     "rank": 162,
@@ -1801,7 +1801,7 @@
     "previousRank": 171,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "IND"
   },
   {
     "rank": 165,
@@ -1812,7 +1812,7 @@
     "previousRank": 169,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "BAL"
   },
   {
     "rank": 166,
@@ -1823,18 +1823,18 @@
     "previousRank": 159,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "CIN"
   },
   {
     "rank": 167,
-    "name": "Audric Estim\u00e9",
+    "name": "Audric Estimé",
     "position": "RB",
     "positionRank": 70.0,
     "originalRank": 184,
     "previousRank": 184,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "DEN"
   },
   {
     "rank": 168,
@@ -1845,7 +1845,7 @@
     "previousRank": 163,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "LAC"
   },
   {
     "rank": 169,
@@ -1856,7 +1856,7 @@
     "previousRank": 192,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "CLE"
   },
   {
     "rank": 170,
@@ -1867,7 +1867,7 @@
     "previousRank": 187,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "BAL"
   },
   {
     "rank": 171,
@@ -1878,7 +1878,7 @@
     "previousRank": 166,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "ARI"
   },
   {
     "rank": 172,
@@ -1889,7 +1889,7 @@
     "previousRank": 176,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "MIA"
   },
   {
     "rank": 173,
@@ -1900,7 +1900,7 @@
     "previousRank": 161,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "LAC"
   },
   {
     "rank": 174,
@@ -1911,7 +1911,7 @@
     "previousRank": 188,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "PIT"
   },
   {
     "rank": 175,
@@ -1933,7 +1933,7 @@
     "previousRank": 197,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "LV"
   },
   {
     "rank": 177,
@@ -1944,7 +1944,7 @@
     "previousRank": 179,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "BAL"
   },
   {
     "rank": 178,
@@ -1955,7 +1955,7 @@
     "previousRank": 186,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "LAC"
   },
   {
     "rank": 179,
@@ -1966,7 +1966,7 @@
     "previousRank": 195,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "ATL"
   },
   {
     "rank": 180,
@@ -1977,7 +1977,7 @@
     "previousRank": 162,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "LV"
   },
   {
     "rank": 181,
@@ -1988,7 +1988,7 @@
     "previousRank": 158,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "DAL"
   },
   {
     "rank": 182,
@@ -1999,7 +1999,7 @@
     "previousRank": 160,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "HOU"
   },
   {
     "rank": 183,
@@ -2010,7 +2010,7 @@
     "previousRank": 190,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "KC"
   },
   {
     "rank": 184,
@@ -2021,7 +2021,7 @@
     "previousRank": 189,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "BUF"
   },
   {
     "rank": 185,
@@ -2032,7 +2032,7 @@
     "previousRank": 167,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "TB"
   },
   {
     "rank": 186,
@@ -2043,7 +2043,7 @@
     "previousRank": 165,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "NE"
   },
   {
     "rank": 187,
@@ -2054,7 +2054,7 @@
     "previousRank": 180,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "CAR"
   },
   {
     "rank": 188,
@@ -2065,7 +2065,7 @@
     "previousRank": 185,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "HOU"
   },
   {
     "rank": 189,
@@ -2076,7 +2076,7 @@
     "previousRank": 168,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "ATL"
   },
   {
     "rank": 190,
@@ -2098,7 +2098,7 @@
     "previousRank": 172,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "NE"
   },
   {
     "rank": 192,
@@ -2109,7 +2109,7 @@
     "previousRank": 173,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "KC"
   },
   {
     "rank": 193,
@@ -2120,7 +2120,7 @@
     "previousRank": 196,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "CAR"
   },
   {
     "rank": 194,
@@ -2131,7 +2131,7 @@
     "previousRank": 199,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "TEN"
   },
   {
     "rank": 195,
@@ -2142,7 +2142,7 @@
     "previousRank": 170,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "SEA"
   },
   {
     "rank": 196,
@@ -2153,7 +2153,7 @@
     "previousRank": 194,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "LAR"
   },
   {
     "rank": 197,
@@ -2164,7 +2164,7 @@
     "previousRank": 183,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "CHI"
   },
   {
     "rank": 198,
@@ -2175,7 +2175,7 @@
     "previousRank": 198,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "SEA"
   },
   {
     "rank": 199,
@@ -2186,7 +2186,7 @@
     "previousRank": 193,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "JAC"
   },
   {
     "rank": 200,
@@ -2208,6 +2208,6 @@
     "previousRank": 182,
     "rankChange": null,
     "bye": null,
-    "team": null
+    "team": "DEN"
   }
 ]
