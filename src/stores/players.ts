@@ -1,6 +1,6 @@
 // @stores/players.ts
 import { defineStore } from "pinia";
-import rawPlayers from "@data/players_8_10_2025_enriched_full_with_teams.json";
+import rawPlayers from "@data/8.14.2025_updated_ranks.json";
 
 export interface Player {
   rank: number;
