@@ -44,7 +44,6 @@ function draftToMyTeam(p: Player) {
 function draftedByOthers(p: Player) {
   store.hide(p);
 }
-
 function resetAll() {
   (Object.keys(roster) as SlotId[]).forEach((k) => (roster[k] = null));
   bench.value = [];
@@ -56,19 +55,13 @@ const draftedCount = computed(
 );
 
 /** ---------- DRAFT BOARD list (round headers) ---------- */
-interface Header {
-  type: "header";
-  round: number;
-}
-interface Row {
-  type: "player";
-  data: Player;
-}
+type Header = { type: "header"; round: number };
+type Row = { type: "player"; data: Player };
 type DisplayItem = Header | Row;
 
 const displayList = computed<DisplayItem[]>(() => {
   const list: DisplayItem[] = [];
-  const size = teams.value;
+  const size = Math.max(1, teams.value);
   const ordered = [...store.visible].sort((a, b) => a.rank - b.rank);
   let currentRound = 0;
   for (const p of ordered) {
@@ -85,88 +78,11 @@ const displayList = computed<DisplayItem[]>(() => {
 
 <template>
   <div class="p-4 max-w-5xl mx-auto space-y-6">
-    <!-- Excel-style title bar -->
-    <div
-      class="bg-slate-800 text-white text-sm px-3 py-1.5 flex items-center gap-3 rounded-t-md"
-    >
-      <span class="font-semibold">My Team</span>
-      <span class="ml-auto opacity-80">Draft Board</span>
-    </div>
-
-    <!-- Excel-style tabs -->
-    <div class="bg-slate-100 border-x border-t border-slate-300 px-2">
-      <div class="flex items-end gap-1">
-        <button
-          class="px-3 py-2 text-sm font-medium bg-white border border-slate-300 rounded-t-md shadow-sm"
-        >
-          Home
-        </button>
-        <button class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Insert
-        </button>
-        <button class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Layout
-        </button>
-        <button class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">
-          View
-        </button>
-      </div>
-    </div>
-
-    <!-- Ribbon area (Teams + Reset) -->
-    <div class="bg-white border border-slate-300 rounded-b-md px-3 py-2">
-      <div class="flex flex-wrap items-center gap-3">
-        <!-- Group: Teams -->
-        <div class="border border-slate-200 rounded-md p-2">
-          <div
-            class="text-[11px] tracking-wide uppercase text-slate-500 mb-1 text-center"
-          >
-            Teams
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              v-for="n in teamOptions"
-              :key="n"
-              @click="teams = n"
-              :class="[
-                'px-3 py-1.5 rounded-md text-sm font-medium border transition',
-                teams === n
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50',
-              ]"
-            >
-              {{ n }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Group: Actions -->
-        <div class="border border-slate-200 rounded-md p-2">
-          <div
-            class="text-[11px] tracking-wide uppercase text-slate-500 mb-1 text-center"
-          >
-            Actions
-          </div>
-          <button
-            @click="resetAll()"
-            class="px-4 py-1.5 border border-emerald-600 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium hover:bg-emerald-100 transition"
-          >
-            Reset
-          </button>
-        </div>
-
-        <!-- Status -->
-        <div class="ml-auto text-sm text-slate-600">
-          <span class="font-semibold">{{ draftedCount }}</span> of 15 drafted
-        </div>
-      </div>
-    </div>
-
     <!-- TOP ROSTER BAR -->
     <section class="bg-slate-900 text-slate-100 rounded-lg p-3 shadow">
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
-          My Team&nbsp;
+          My Team
           <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded">
             {{ draftedCount }} of 15
           </span>
@@ -174,7 +90,7 @@ const displayList = computed<DisplayItem[]>(() => {
 
         <DraftSlotRandomizer
           :min="1"
-          :max="12"
+          :max="teams"
           label="Randomize Draft Slot"
           @selected="(n: number) => console.log('Selected slot:', n)"
         />
@@ -192,11 +108,17 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">QB</span>
-            <template v-if="roster.QB"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="roster.QB">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 roster.QB.name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="roster.QB.team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ roster.QB.team }}
+              </span>
+            </template>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
@@ -211,11 +133,17 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">WR</span>
-            <template v-if="(roster as any)[id]"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="(roster as any)[id]">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 (roster as any)[id].name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="(roster as any)[id].team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ (roster as any)[id].team }}
+              </span>
+            </template>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
@@ -230,11 +158,17 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">RB</span>
-            <template v-if="(roster as any)[id]"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="(roster as any)[id]">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 (roster as any)[id].name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="(roster as any)[id].team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ (roster as any)[id].team }}
+              </span>
+            </template>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
@@ -247,11 +181,17 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">TE</span>
-            <template v-if="roster.TE"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="roster.TE">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 roster.TE.name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="roster.TE.team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ roster.TE.team }}
+              </span>
+            </template>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
         </div>
@@ -270,6 +210,11 @@ const displayList = computed<DisplayItem[]>(() => {
               ]"
             >
               <span class="truncate text-sm">{{ p.name }}</span>
+              <span
+                v-if="p.team"
+                class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10 uppercase"
+                >{{ p.team }}</span
+              >
               <span
                 class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10"
                 >{{ p.position }}</span
@@ -291,24 +236,36 @@ const displayList = computed<DisplayItem[]>(() => {
         class="min-w-full table-fixed border-collapse border border-slate-300"
       >
         <thead class="bg-slate-100 sticky top-0 z-10">
-          <tr class="select-none">
+          <tr class="select-none text-xs">
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
             >
-              Pick
+              #
             </th>
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
+            >
+              Δ
+            </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-left font-semibold"
             >
               Player
             </th>
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
             >
               Pos
             </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
+            >
+              Team
+            </th>
+            <th class="border-b border-slate-300 px-4 py-2"></th>
           </tr>
         </thead>
+
         <tbody>
           <template
             v-for="item in displayList"
@@ -317,7 +274,7 @@ const displayList = computed<DisplayItem[]>(() => {
             <!-- Round header -->
             <tr v-if="item.type === 'header'">
               <td
-                colspan="3"
+                colspan="6"
                 class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
               >
                 Round {{ item.round }}
@@ -339,14 +296,10 @@ const displayList = computed<DisplayItem[]>(() => {
 </template>
 
 <style>
-/* Excel-like table hover outline (optional) */
 tbody tr:hover {
   outline: 2px solid rgba(0, 0, 0, 0.15);
   outline-offset: -2px;
 }
-
-/* Position colors duplicated here so the view still works in isolation.
-   If you centralize them globally, you can delete this block. */
 .rb {
   background-color: #c9dcf3;
 }

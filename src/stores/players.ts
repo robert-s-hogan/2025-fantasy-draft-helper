@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import rawPlayers from "@data/players_8_12_2025_enriched_full.json";
+import rawPlayers from "@data/players_8_19_2025_enriched_full.json";
 
 export interface Player {
   rank: number;
@@ -8,8 +8,8 @@ export interface Player {
   originalRank: number;
   previousRank: number | null;
   rankChange: number | null;
-  bye: number;
-  team: string;
+  bye: number | null;
+  team: string | null;
 }
 
 export const usePlayersStore = defineStore("players", {
@@ -19,7 +19,7 @@ export const usePlayersStore = defineStore("players", {
       rank: Math.trunc(p.rank), // ensure integer
       originalRank: Math.trunc(p.originalRank),
       previousRank: p.previousRank != null ? Math.trunc(p.previousRank) : null,
-      bye: Math.trunc(p.bye),
+      bye: p.bye != null ? Math.trunc(p.bye) : null,
     }));
 
     return {

@@ -1,0 +1,7402 @@
+
+=== src/components/DraftSlotRandomizer.vue ===
+import { ref } from "vue";
+
+const props = withDefaults(
+  defineProps<{
+    min?: number;
+    max?: number;
+    label?: string; // button label
+  }>(),
+  {
+    min: 1,
+    max: 12,
+    label: "Randomize Draft Slot",
+  }
+);
+
+const emit = defineEmits<{ (e: "selected", value: number): void }>();
+
+const value = ref<number | null>(null);
+
+function roll() {
+  const span = props.max - props.min + 1;
+  let n: number;
+  if (span <= 0) n = props.min;
+  else if (window.crypto?.getRandomValues) {
+    const u32 = new Uint32Array(1);
+    window.crypto.getRandomValues(u32);
+    n = (u32[0] % span) + props.min;
+  } else {
+    n = Math.floor(Math.random() * span) + props.min;
+  }
+  value.value = n;
+  emit("selected", n);
+}
+
+  <div class="flex flex-col space-y-6 gap-3">
+    <button
+      type="button"
+      @click="roll"
+      class="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm"
+    >
+      {{ label }}
+    </button>
+
+    <!-- shows only after first roll -->
+    <span v-if="value !== null" class="text-sm">
+      Draft position:
+      <span
+        class="inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white font-semibold"
+      >
+        {{ value }}
+      </span>
+    </span>
+  </div>
+
+=== src/components/PlayersBoard.vue ===
+import { ref } from "vue";
+import { useRoster } from "@/composables/useRoster";
+import TeamsPicker from "@/components/controls/TeamsPicker.vue";
+import DraftTable from "@/components/draft/DraftTable.vue";
+import RosterGrid from "@/components/roster/RosterGrid.vue";
+import BenchList from "@/components/roster/BenchList.vue";
+import DraftSlotRandomizer from "@/components/DraftSlotRandomizer.vue";
+
+const teamOptions = [10, 12, 14, 16];
+const teams = ref<number>(12);
+
+const { roster, bench, draftedCount, draftById, releaseById, resetAll } =
+  useRoster();
+
+  <div class="p-4 max-w-5xl mx-auto space-y-6">
+    <div
+      class="bg-slate-800 text-white text-sm px-3 py-1.5 flex items-center gap-3 rounded-t-md"
+    >
+      <span class="font-semibold">My Team</span>
+      <span class="ml-auto opacity-80">Draft Board</span>
+    </div>
+
+    <!-- Ribbon -->
+    <div class="bg-white border border-slate-300 rounded-b-md px-3 py-2">
+      <div class="flex flex-wrap items-center gap-3">
+        <TeamsPicker v-model="teams" :options="teamOptions" />
+        <div class="border border-slate-200 rounded-md p-2">
+          <div
+            class="text-[11px] tracking-wide uppercase text-slate-500 mb-1 text-center"
+          >
+            Actions
+          </div>
+          <button
+            @click="resetAll()"
+            class="px-4 py-1.5 border border-emerald-600 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium hover:bg-emerald-100 transition"
+          >
+            Reset
+          </button>
+        </div>
+        <div class="ml-auto text-sm text-slate-600">
+          <span class="font-semibold">{{ draftedCount }}</span> of 15 drafted
+        </div>
+      </div>
+    </div>
+
+    <!-- Top roster bar -->
+    <section class="bg-slate-900 text-slate-100 rounded-lg p-3 shadow">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
+          My Team
+          <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded"
+            >{{ draftedCount }} of 15</span
+          >
+        </h2>
+
+        <DraftSlotRandomizer
+          :min="1"
+          :max="teams"
+          label="Randomize Draft Slot"
+          @selected="(n:number)=>console.log('Selected slot:', n)"
+        />
+      </div>
+
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <RosterGrid :roster="roster" />
+        <BenchList :bench="bench" />
+      </div>
+    </section>
+
+    <!-- Draft table -->
+    <DraftTable :teams="teams" @draft="draftById" @release="releaseById" />
+  </div>
+
+=== src/components/PlayersList.vue ===
+import { ref, reactive, computed } from "vue";
+import { usePlayersStore } from "@stores/players";
+import type { Player } from "@stores/players";
+import RosterRow from "@components/RosterRow.vue";
+import DraftSlotRandomizer from "@/components/DraftSlotRandomizer.vue";
+
+const store = usePlayersStore();
+
+const teamOptions = [10, 12, 14, 16];
+const teams = ref<number>(12);
+
+/** ---------- ROSTER STATE ---------- */
+type SlotId = "QB" | "WR1" | "WR2" | "WR3" | "RB1" | "RB2" | "TE";
+const roster = reactive<Record<SlotId, Player | null>>({
+  QB: null,
+  WR1: null,
+  WR2: null,
+  WR3: null,
+  RB1: null,
+  RB2: null,
+  TE: null,
+});
+const bench = ref<Player[]>([]);
+
+const targetsByPos: Record<Player["position"], SlotId[]> = {
+  WR: ["WR1", "WR2", "WR3"],
+  RB: ["RB1", "RB2"],
+  TE: ["TE"],
+  QB: ["QB"],
+};
+
+function draftToMyTeam(p: Player) {
+  for (const slot of targetsByPos[p.position]) {
+    if (!roster[slot]) {
+      roster[slot] = p;
+      store.hide(p);
+      return;
+    }
+  }
+  bench.value.push(p);
+  store.hide(p);
+}
+function draftedByOthers(p: Player) {
+  store.hide(p);
+}
+
+function resetAll() {
+  (Object.keys(roster) as SlotId[]).forEach((k) => (roster[k] = null));
+  bench.value = [];
+  store.reset();
+}
+
+const draftedCount = computed(
+  () => Object.values(roster).filter(Boolean).length + bench.value.length
+);
+
+/** ---------- DRAFT BOARD list (round headers) ---------- */
+interface Header {
+  type: "header";
+  round: number;
+}
+interface Row {
+  type: "player";
+  data: Player;
+}
+type DisplayItem = Header | Row;
+
+const displayList = computed<DisplayItem[]>(() => {
+  const list: DisplayItem[] = [];
+  const size = teams.value;
+  const ordered = [...store.visible].sort((a, b) => a.rank - b.rank);
+  let currentRound = 0;
+  for (const p of ordered) {
+    const neededRound = Math.floor((p.rank - 1) / size) + 1;
+    if (neededRound !== currentRound) {
+      currentRound = neededRound;
+      list.push({ type: "header", round: currentRound });
+    }
+    list.push({ type: "player", data: p });
+  }
+  return list;
+});
+
+  <div class="p-4 max-w-5xl mx-auto space-y-6">
+    <!-- TOP ROSTER BAR -->
+    <section class="bg-slate-900 text-slate-100 rounded-lg p-3 shadow">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
+          My Team&nbsp;
+          <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded">
+            {{ draftedCount }} of 15
+          </span>
+        </h2>
+
+        <DraftSlotRandomizer
+          :min="1"
+          :max="12"
+          label="Randomize Draft Slot"
+          @selected="(n: number) => console.log('Selected slot:', n)"
+        />
+      </div>
+
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <!-- Starters -->
+        <div class="space-y-2">
+          <!-- QB -->
+          <div
+            :class="[
+              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
+              roster.QB ? roster.QB.position.toLowerCase() : 'bg-slate-100',
+              'text-slate-900',
+            ]"
+          >
+            <span class="text-xs tracking-wide">QB</span>
+            <template v-if="roster.QB"
+              ><span class="text-sm truncate max-w-[12rem]">{{
+                roster.QB.name
+              }}</span></template
+            >
+            <span v-else class="text-xs text-slate-500">—</span>
+          </div>
+
+          <!-- WR1..WR3 -->
+          <div
+            v-for="id in ['WR1', 'WR2', 'WR3']"
+            :key="id"
+            :class="[
+              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
+              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100',
+              'text-slate-900'
+            ]"
+          >
+            <span class="text-xs tracking-wide">WR</span>
+            <template v-if="(roster as any)[id]"
+              ><span class="text-sm truncate max-w-[12rem]">{{
+                (roster as any)[id].name
+              }}</span></template
+            >
+            <span v-else class="text-xs text-slate-500">—</span>
+          </div>
+
+          <!-- RB1..RB2 -->
+          <div
+            v-for="id in ['RB1', 'RB2']"
+            :key="id"
+            :class="[
+              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
+              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100',
+              'text-slate-900'
+            ]"
+          >
+            <span class="text-xs tracking-wide">RB</span>
+            <template v-if="(roster as any)[id]"
+              ><span class="text-sm truncate max-w-[12rem]">{{
+                (roster as any)[id].name
+              }}</span></template
+            >
+            <span v-else class="text-xs text-slate-500">—</span>
+          </div>
+
+          <!-- TE -->
+          <div
+            :class="[
+              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
+              roster.TE ? roster.TE.position.toLowerCase() : 'bg-slate-100',
+              'text-slate-900',
+            ]"
+          >
+            <span class="text-xs tracking-wide">TE</span>
+            <template v-if="roster.TE"
+              ><span class="text-sm truncate max-w-[12rem]">{{
+                roster.TE.name
+              }}</span></template
+            >
+            <span v-else class="text-xs text-slate-500">—</span>
+          </div>
+        </div>
+
+        <!-- Bench -->
+        <div>
+          <div class="text-xs uppercase text-slate-400 mb-1">Bench</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div
+              v-for="p in bench"
+              :key="p.rank"
+              :class="[
+                'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2',
+                p.position.toLowerCase(),
+                'text-slate-900',
+              ]"
+            >
+              <span class="truncate text-sm">{{ p.name }}</span>
+              <span
+                class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10"
+                >{{ p.position }}</span
+              >
+            </div>
+
+            <div
+              v-if="bench.length === 0"
+              class="text-xs text-slate-500 col-span-2"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DRAFT BOARD -->
+    <div class="overflow-x-auto">
+      <table
+        class="min-w-full table-fixed border-collapse border border-slate-300"
+      >
+        <thead class="bg-slate-100 sticky top-0 z-10">
+          <tr class="select-none">
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+            >
+              Pick
+            </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+            >
+              Player
+            </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+            >
+              Pos
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <template
+            v-for="item in displayList"
+            :key="item.type === 'header' ? `h${item.round}` : item.data.rank"
+          >
+            <!-- Round header -->
+            <tr v-if="item.type === 'header'">
+              <td
+                colspan="3"
+                class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
+              >
+                Round {{ item.round }}
+              </td>
+            </tr>
+
+            <!-- Player row -->
+            <RosterRow
+              v-else
+              :player="item.data"
+              @my-team="draftToMyTeam"
+              @others="draftedByOthers"
+            />
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+/* Excel-like table hover outline (optional) */
+tbody tr:hover {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: -2px;
+}
+
+/* Position colors duplicated here so the view still works in isolation.
+   If you centralize them globally, you can delete this block. */
+.rb {
+  background-color: #c9dcf3;
+}
+.wr {
+  background-color: #a3f5b1;
+}
+.te {
+  background-color: #fdf1b2;
+}
+.qb {
+  background-color: #fca7a3;
+}
+.def {
+  background-color: #d5ba6f;
+}
+.pk,
+.k {
+  background-color: #f5baf4;
+}
+
+=== src/components/RosterRow.vue ===
+import type { Player } from "@stores/players";
+
+const props = defineProps<{ player: Player }>();
+
+const emit = defineEmits<{
+  (e: "my-team", p: Player): void;
+  (e: "others", p: Player): void;
+}>();
+
+function onMyTeam() {
+  emit("my-team", props.player);
+}
+function onDraftedByOthers() {
+  emit("others", props.player);
+}
+
+  <!-- Color the ENTIRE ROW by position -->
+  <tr
+    class="select-none cursor-default"
+    :class="props.player.position.toLowerCase()"
+  >
+    <!-- Pick -->
+    <td
+      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+    >
+      {{ props.player.rank }}
+    </td>
+
+    <!-- Player + buttons -->
+    <td
+      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+    >
+      <div class="flex items-center gap-2 px-2 py-1 text-slate-900">
+        <span class="truncate">{{ props.player.name }}</span>
+
+        <div class="ml-auto flex gap-3">
+          <button
+            type="button"
+            @click="onMyTeam"
+            class="px-3.5 py-1.5 border rounded-md text-sm font-semibold transition bg-blue-600 text-white border-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label="Add to My Team"
+            title="Add to My Team"
+          >
+            My Team
+          </button>
+
+          <button
+            type="button"
+            @click="onDraftedByOthers"
+            class="px-3.5 py-1.5 border rounded-md text-sm font-medium transition bg-white text-slate-700 border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            aria-label="Mark Drafted by Others"
+            title="Mark Drafted by Others"
+          >
+            Drafted
+          </button>
+        </div>
+      </div>
+    </td>
+
+    <!-- Pos chip -->
+    <td
+      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+    >
+      <span
+        :class="[
+          'px-2 py-0.5 rounded text-[10px] font-semibold text-slate-900',
+          props.player.position.toLowerCase(),
+        ]"
+      >
+        {{ props.player.position }}
+      </span>
+    </td>
+  </tr>
+
+/* Shared position colors (used on <tr> and on the little chip).
+   Keep UNSCOPED if you color rows from another component. */
+.rb {
+  background-color: #c9dcf3;
+} /* Light Blue  */
+.wr {
+  background-color: #a3f5b1;
+} /* Mint Green  */
+.te {
+  background-color: #fdf1b2;
+} /* Pastel Yellow */
+.qb {
+  background-color: #fca7a3;
+} /* Salmon Red   */
+.def {
+  background-color: #d5ba6f;
+} /* Muted Gold   */
+.pk,
+.k {
+  background-color: #f5baf4;
+} /* Pink/Purple */
+
+=== src/components/controls/TeamsPicker.vue ===
+const props = defineProps<{ modelValue: number; options?: number[] }>();
+const emit = defineEmits<{ (e: "update:modelValue", v: number): void }>();
+const opts = props.options ?? [10, 12, 14, 16];
+
+  <div class="border border-slate-200 rounded-md p-2">
+    <div
+      class="text-[11px] tracking-wide uppercase text-slate-500 mb-1 text-center"
+    >
+      Teams
+    </div>
+    <div class="flex items-center gap-2">
+      <button
+        v-for="n in opts"
+        :key="n"
+        @click="emit('update:modelValue', n)"
+        :class="[
+          'px-3 py-1.5 rounded-md text-sm font-medium border transition',
+          n === modelValue
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50',
+        ]"
+      >
+        {{ n }}
+      </button>
+    </div>
+  </div>
+
+=== src/components/draft/DraftTable.vue ===
+import { useDraftBoard } from "@/composables/useDraftBoard";
+import { ref, watch } from "vue";
+import RosterRow from "@/components/RosterRow.vue";
+
+const props = defineProps<{ teams: number }>();
+const emit = defineEmits<{
+  (e: "draft", id: string): void;
+  (e: "release", id: string): void;
+}>();
+
+const teamsRef = ref(props.teams);
+watch(
+  () => props.teams,
+  (v) => (teamsRef.value = v)
+); // keep in sync
+
+const { displayList } = useDraftBoard(teamsRef);
+
+  <div class="overflow-x-auto">
+    <table
+      class="min-w-full table-fixed border-collapse border border-slate-300"
+    >
+      <thead class="bg-slate-100 sticky top-0 z-10 text-xs">
+        <tr class="select-none">
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+          >
+            #
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+          >
+            Δ
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-left text-xs font-semibold"
+          >
+            Player
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+          >
+            Pos
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+          >
+            Team
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+          ></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <template
+          v-for="item in displayList"
+          :key="item.type === 'header' ? `h${item.round}` : item.data.id"
+        >
+          <tr v-if="item.type === 'header'">
+            <td
+              colspan="6"
+              class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
+            >
+              Round {{ item.round }}
+            </td>
+          </tr>
+
+          <RosterRow
+            v-else
+            :player="item.data"
+            @draft="(id: string) => emit('draft', id)"
+            @release="(id: string) => emit('release', id)"
+          />
+      </tbody>
+    </table>
+  </div>
+
+tbody tr:hover {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: -2px;
+}
+
+=== src/components/roster/BenchList.vue ===
+import type { Player } from "@stores/players";
+defineProps<{ bench: Player[] }>();
+
+const posBg: Record<Player["position"], string> = {
+  WR: "bg-pos-wr",
+  RB: "bg-pos-rb",
+  TE: "bg-pos-te",
+  QB: "bg-pos-qb",
+};
+
+  <div>
+    <div class="text-xs uppercase text-slate-400 mb-1">Bench</div>
+    <div class="grid grid-cols-2 gap-2">
+      <div
+        v-for="p in bench"
+        :key="p.id"
+        :class="[
+          'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2 text-slate-900',
+          posBg[p.position] || 'bg-slate-100',
+        ]"
+      >
+        <span class="truncate text-sm">{{ p.name }}</span>
+        <span
+          v-if="p.team"
+          class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10 uppercase"
+          >{{ p.team }}</span
+        >
+        <span
+          class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10"
+        >
+          {{ p.posRank ? `${p.position}${p.posRank}` : p.position }}
+        </span>
+      </div>
+
+      <div
+        v-if="bench.length === 0"
+        class="text-xs text-slate-500 col-span-2"
+      ></div>
+    </div>
+  </div>
+
+=== src/components/roster/RosterGrid.vue ===
+import type { Player } from "@stores/players";
+import type { SlotId } from "@/composables/useRoster";
+
+// ✅ one call only
+const { roster } = defineProps<{ roster: Record<SlotId, Player | null> }>();
+
+const posBg: Record<Player["position"], string> = {
+  WR: "bg-pos-wr",
+  RB: "bg-pos-rb",
+  TE: "bg-pos-te",
+  QB: "bg-pos-qb",
+};
+
+const wrSlots: SlotId[] = ["WR1", "WR2", "WR3"];
+const rbSlots: SlotId[] = ["RB1", "RB2"];
+
+const getSlot = (id: SlotId) => roster?.[id] ?? null;
+
+  <div class="space-y-2">
+    <!-- QB -->
+    <div
+      :class="[
+        'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
+        roster.QB ? posBg[roster.QB.position] : 'bg-slate-100',
+      ]"
+    >
+      <span class="text-xs tracking-wide">QB</span>
+      <template v-if="roster.QB">
+        <span class="text-sm truncate max-w-[12rem]">{{ roster.QB.name }}</span>
+        <span
+          v-if="roster.QB.team"
+          class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+        >
+          {{ roster.QB.team }}
+        </span>
+      <span v-else class="text-xs text-slate-500">—</span>
+    </div>
+
+    <!-- WRs -->
+    <div
+      v-for="id in wrSlots"
+      :key="id"
+      :class="[
+        'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
+        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-100',
+      ]"
+    >
+      <span class="text-xs tracking-wide">WR</span>
+      <template v-if="getSlot(id)">
+        <span class="text-sm truncate max-w-[12rem]">{{
+          getSlot(id)!.name
+        }}</span>
+      <span v-else class="text-xs text-slate-500">—</span>
+    </div>
+
+    <!-- RBs -->
+    <div
+      v-for="id in rbSlots"
+      :key="id"
+      :class="[
+        'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
+        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-100',
+      ]"
+    >
+      <span class="text-xs tracking-wide">RB</span>
+      <template v-if="getSlot(id)">
+        <span class="text-sm truncate max-w-[12rem]">{{
+          getSlot(id)!.name
+        }}</span>
+      <span v-else class="text-xs text-slate-500">—</span>
+    </div>
+
+    <!-- TE -->
+    <div
+      :class="[
+        'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
+        roster.TE ? posBg[roster.TE.position] : 'bg-slate-100',
+      ]"
+    >
+      <span class="text-xs tracking-wide">TE</span>
+      <template v-if="roster.TE">
+        <span class="text-sm truncate max-w-[12rem]">{{ roster.TE.name }}</span>
+      <span v-else class="text-xs text-slate-500">—</span>
+    </div>
+  </div>
+
+=== src/stores/players.ts ===
+import { defineStore } from "pinia";
+import rawPlayers from "@data/players_8_19_2025_enriched_full.json";
+
+export interface Player {
+  rank: number;
+  name: string;
+  position: "RB" | "WR" | "TE" | "QB";
+  originalRank: number;
+  previousRank: number | null;
+  rankChange: number | null;
+  bye: number | null;
+  team: string | null;
+}
+
+export const usePlayersStore = defineStore("players", {
+  state: () => {
+    const normalized = (rawPlayers as Player[]).map((p) => ({
+      ...p,
+      rank: Math.trunc(p.rank), // ensure integer
+      originalRank: Math.trunc(p.originalRank),
+      previousRank: p.previousRank != null ? Math.trunc(p.previousRank) : null,
+      bye: p.bye != null ? Math.trunc(p.bye) : null,
+    }));
+
+    return {
+      original: normalized,
+      visible: [...normalized],
+    };
+  },
+  actions: {
+    hide(player: Player) {
+      this.visible = this.visible.filter((p) => p !== player);
+    },
+    reset() {
+      this.visible = [...this.original];
+    },
+    shuffle() {
+      this.visible.sort(() => Math.random() - 0.5);
+    },
+  },
+});
+
+
+=== README.md ===
+# Vue 3 + Vite
+
+This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+
+Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+
+
+=== shims-vue.d.ts ===
+// src/shims-vue.d.ts
+declare module "*.vue" {
+  import { DefineComponent } from "vue";
+  const component: DefineComponent<{}, {}, any>;
+  export default component;
+}
+
+
+=== src/composables/positionColors.ts ===
+// src/composables/positionColors.ts
+export const posBg = {
+  WR: "bg-pos-wr",
+  RB: "bg-pos-rb",
+  TE: "bg-pos-te",
+  QB: "bg-pos-qb",
+} as const;
+
+
+=== src/composables/useDraftBoard.ts ===
+// src/composables/useDraftBoard.ts
+import { computed, type Ref } from "vue";
+import { usePlayersStore, type Player } from "@stores/players";
+
+export type DisplayItem =
+  | { type: "header"; round: number }
+  | { type: "player"; data: Player };
+
+export function useDraftBoard(teams: Ref<number>) {
+  const store = usePlayersStore();
+  const displayList = computed<DisplayItem[]>(() => {
+    const list: DisplayItem[] = [];
+    const size = Math.max(1, teams.value);
+    const ordered = [...store.visible].sort((a, b) => a.rank - b.rank);
+    let currentRound = 0;
+    for (const p of ordered) {
+      const neededRound = Math.floor((p.rank - 1) / size) + 1;
+      if (neededRound !== currentRound) {
+        currentRound = neededRound;
+        list.push({ type: "header", round: currentRound });
+      }
+      list.push({ type: "player", data: p });
+    }
+    return list;
+  });
+  return { displayList };
+}
+
+
+=== src/composables/useRoster.ts ===
+// src/composables/useRoster.ts
+import { reactive, ref, computed } from "vue";
+import { usePlayersStore, type Player } from "@stores/players";
+
+export type SlotId = "QB" | "WR1" | "WR2" | "WR3" | "RB1" | "RB2" | "TE";
+
+const targetsByPos: Record<Player["position"], SlotId[]> = {
+  WR: ["WR1", "WR2", "WR3"],
+  RB: ["RB1", "RB2"],
+  TE: ["TE"],
+  QB: ["QB"],
+};
+
+export function useRoster() {
+  const store = usePlayersStore();
+
+  const roster = reactive<Record<SlotId, Player | null>>({
+    QB: null,
+    WR1: null,
+    WR2: null,
+    WR3: null,
+    RB1: null,
+    RB2: null,
+    TE: null,
+  });
+  const bench = ref<Player[]>([]);
+
+  function draftById(id: string) {
+    const p = store.byId(id);
+    if (!p) return;
+    for (const slot of targetsByPos[p.position]) {
+      if (!roster[slot]) {
+        roster[slot] = p;
+        store.hideById(p.id);
+        return;
+      }
+    }
+    bench.value.push(p);
+    store.hideById(p.id);
+  }
+
+  function releaseById(id: string) {
+    // remove from bench if there
+    const idx = bench.value.findIndex((p) => p.id === id);
+    if (idx >= 0) bench.value.splice(idx, 1);
+
+    // remove from roster if there
+    (Object.keys(roster) as SlotId[]).forEach((k) => {
+      if (roster[k]?.id === id) roster[k] = null;
+    });
+
+    store.unhideById(id);
+  }
+
+  function resetAll() {
+    (Object.keys(roster) as SlotId[]).forEach((k) => (roster[k] = null));
+    bench.value = [];
+    store.reset();
+  }
+
+  const draftedCount = computed(
+    () => Object.values(roster).filter(Boolean).length + bench.value.length
+  );
+
+  return { roster, bench, draftedCount, draftById, releaseById, resetAll };
+}
+
+
+=== src/data/ffc-files.txt ===
+Rank	Name	Team	Pos	Bye
+1.	Ja'Marr Chase	CIN	WR	10
+2.	Bijan Robinson	ATL	RB	5
+3.	Saquon Barkley	PHI	RB	9
+4.	Jahmyr Gibbs	DET	RB	8
+5.	Justin Jefferson	MIN	WR	6
+6.	CeeDee Lamb	DAL	WR	10
+7.	Christian McCaffrey	SF	RB	14
+8.	Puka Nacua	LAR	WR	8
+9.	De'Von Achane	MIA	RB	12
+10.	Malik Nabers	NYG	WR	14
+11.	Nico Collins	HOU	WR	6
+12.	Ashton Jeanty	LV	RB	8
+13.	Derrick Henry	BAL	RB	7
+14.	Amon-Ra St. Brown	DET	WR	8
+15.	Brian Thomas Jr.	JAX	WR	8
+16.	Josh Jacobs	GB	RB	5
+17.	Drake London	ATL	WR	5
+18.	A.J. Brown	PHI	WR	9
+19.	Jonathan Taylor	IND	RB	11
+20.	Bucky Irving	TB	RB	9
+21.	Kyren Williams	LAR	RB	8
+22.	Tee Higgins	CIN	WR	10
+23.	Lamar Jackson	BAL	QB	7
+24.	Chase Brown	CIN	RB	10
+25.	Ladd McConkey	LAC	WR	12
+26.	Tyreek Hill	MIA	WR	12
+27.	Josh Allen	BUF	QB	7
+28.	Alvin Kamara	NO	RB	11
+29.	Davante Adams	LAR	WR	8
+30.	Brock Bowers	LV	TE	8
+31.	Joe Burrow	CIN	QB	10
+32.	Mike Evans	TB	WR	9
+33.	Trey McBride	ARI	TE	8
+34.	Jayden Daniels	WAS	QB	12
+35.	James Cook	BUF	RB	7
+36.	Breece Hall	NYJ	RB	9
+37.	Jaxon Smith-Njigba	SEA	WR	8
+38.	Marvin Harrison Jr.	ARI	WR	8
+39.	Kenneth Walker III	SEA	RB	8
+40.	James Conner	ARI	RB	8
+41.	Terry McLaurin	WAS	WR	12
+42.	Garrett Wilson	NYJ	WR	9
+43.	Chuba Hubbard	CAR	RB	14
+44.	DJ Moore	CHI	WR	5
+45.	DK Metcalf	PIT	WR	5
+46.	Jalen Hurts	PHI	QB	9
+47.	Omarion Hampton	LAC	RB	12
+48.	DeVonta Smith	PHI	WR	9
+49.	Courtland Sutton	DEN	WR	12
+50.	George Kittle	SF	TE	14
+51.	Xavier Worthy	KC	WR	10
+52.	Zay Flowers	BAL	WR	7
+53.	Jerry Jeudy	CLE	WR	9
+54.	Baker Mayfield	TB	QB	9
+55.	Patrick Mahomes	KC	QB	10
+56.	Calvin Ridley	TEN	WR	10
+57.	Tetairoa McMillan	CAR	WR	14
+58.	Jakobi Meyers	LV	WR	8
+59.	George Pickens	DAL	WR	10
+60.	Jaylen Waddle	MIA	WR	12
+61.	D'Andre Swift	CHI	RB	5
+62.	Tony Pollard	TEN	RB	10
+63.	David Montgomery	DET	RB	8
+64.	Jameson Williams	DET	WR	8
+65.	Aaron Jones	MIN	RB	6
+66.	TreVeyon Henderson	NE	RB	14
+67.	Travis Hunter	JAX	WR	8
+68.	Deebo Samuel Sr.	WAS	WR	12
+69.	Chris Olave	NO	WR	11
+70.	Jauan Jennings	SF	WR	14
+71.	Rashee Rice	KC	WR	10
+72.	RJ Harvey	DEN	RB	12
+73.	Stefon Diggs	NE	WR	14
+74.	Chris Godwin	TB	WR	9
+75.	Khalil Shakir	BUF	WR	7
+76.	Rome Odunze	CHI	WR	5
+77.	Bo Nix	DEN	QB	12
+78.	Isiah Pacheco	KC	RB	10
+79.	Brock Purdy	SF	QB	14
+80.	Joe Mixon	HOU	RB	6
+81.	Jayden Reed	GB	WR	5
+82.	Kaleb Johnson	PIT	RB	5
+83.	Sam LaPorta	DET	TE	8
+84.	Jaylen Warren	PIT	RB	5
+85.	Matthew Golden	GB	WR	5
+86.	Kyler Murray	ARI	QB	8
+87.	Cooper Kupp	SEA	WR	8
+88.	Tyrone Tracy Jr.	NYG	RB	14
+89.	Brian Robinson Jr.	WAS	RB	12
+90.	Travis Kelce	KC	TE	10
+91.	Dak Prescott	DAL	QB	10
+92.	Michael Pittman Jr.	IND	WR	11
+93.	Darnell Mooney	ATL	WR	5
+94.	T.J. Hockenson	MIN	TE	6
+95.	Jordan Addison	MIN	WR	6
+96.	Ricky Pearsall	SF	WR	14
+97.	Josh Downs	IND	WR	11
+98.	Rashid Shaheed	NO	WR	11
+99.	David Njoku	CLE	TE	9
+100.	Jared Goff	DET	QB	8
+101.	Dallas Defense	DAL	DEF	10
+102.	Keon Coleman	BUF	WR	7
+103.	Caleb Williams	CHI	QB	5
+104.	Justin Fields	NYJ	QB	9
+105.	Justin Herbert	LAC	QB	12
+106.	Mark Andrews	BAL	TE	7
+107.	J.J. McCarthy	MIN	QB	6
+108.	NY Giants Defense	NYG	DEF	14
+109.	J.K. Dobbins	DEN	RB	12
+110.	Keenan Allen	LAC	WR	12
+111.	Adam Thielen	CAR	WR	14
+112.	Jordan Love	GB	QB	5
+113.	Denver Defense	DEN	DEF	12
+114.	Cedric Tillman	CLE	WR	9
+115.	Evan Engram	DEN	TE	12
+116.	Marquise Brown	KC	WR	10
+117.	Wan'Dale Robinson	NYG	WR	14
+118.	Philadelphia Defense	PHI	DEF	9
+119.	Jake Ferguson	DAL	TE	10
+120.	Tucker Kraft	GB	TE	5
+121.	Pittsburgh Defense	PIT	DEF	5
+122.	Baltimore Defense	BAL	DEF	7
+123.	Buffalo Defense	BUF	DEF	7
+124.	C.J. Stroud	HOU	QB	6
+125.	Marvin Mims Jr.	DEN	WR	12
+126.	Emeka Egbuka	TB	WR	9
+127.	Austin Ekeler	WAS	RB	12
+128.	Christian Kirk	HOU	WR	6
+129.	Houston Defense	HOU	DEF	6
+130.	Drake Maye	NE	QB	14
+
+=== src/data/players_8_12_2025_enriched_full.json ===
+[
+  {
+    "rank": 1.0,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1.0,
+    "originalRank": 1,
+    "previousRank": 1,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "PHI"
+  },
+  {
+    "rank": 2.0,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2.0,
+    "originalRank": 2,
+    "previousRank": 2,
+    "rankChange": 0.0,
+    "bye": 5.0,
+    "team": "ATL"
+  },
+  {
+    "rank": 3.0,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3.0,
+    "originalRank": 3,
+    "previousRank": 3,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "DET"
+  },
+  {
+    "rank": 4.0,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1.0,
+    "originalRank": 4,
+    "previousRank": 4,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "CIN"
+  },
+  {
+    "rank": 5.0,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2.0,
+    "originalRank": 5,
+    "previousRank": 5,
+    "rankChange": 0.0,
+    "bye": 6.0,
+    "team": "MIN"
+  },
+  {
+    "rank": 6.0,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3.0,
+    "originalRank": 6,
+    "previousRank": 6,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "DAL"
+  },
+  {
+    "rank": 7.0,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4.0,
+    "originalRank": 7,
+    "previousRank": 7,
+    "rankChange": 0.0,
+    "bye": 7.0,
+    "team": "BAL"
+  },
+  {
+    "rank": 8.0,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5.0,
+    "originalRank": 8,
+    "previousRank": 8,
+    "rankChange": 0.0,
+    "bye": 14.0,
+    "team": "SF"
+  },
+  {
+    "rank": 9.0,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4.0,
+    "originalRank": 9,
+    "previousRank": 9,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "LAR"
+  },
+  {
+    "rank": 10.0,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5.0,
+    "originalRank": 10,
+    "previousRank": 10,
+    "rankChange": 0.0,
+    "bye": 6.0,
+    "team": "HOU"
+  },
+  {
+    "rank": 11.0,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6.0,
+    "originalRank": 11,
+    "previousRank": 11,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "DET"
+  },
+  {
+    "rank": 12.0,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7.0,
+    "originalRank": 12,
+    "previousRank": 12,
+    "rankChange": 0.0,
+    "bye": 14.0,
+    "team": "NYG"
+  },
+  {
+    "rank": 13.0,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6.0,
+    "originalRank": 13,
+    "previousRank": 13,
+    "rankChange": 0.0,
+    "bye": 5.0,
+    "team": "GB"
+  },
+  {
+    "rank": 14.0,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7.0,
+    "originalRank": 14,
+    "previousRank": 14,
+    "rankChange": 0.0,
+    "bye": 11.0,
+    "team": "IND"
+  },
+  {
+    "rank": 15.0,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8.0,
+    "originalRank": 15,
+    "previousRank": 15,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "PHI"
+  },
+  {
+    "rank": 16.0,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9.0,
+    "originalRank": 16,
+    "previousRank": 16,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "JAX"
+  },
+  {
+    "rank": 17.0,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8.0,
+    "originalRank": 17,
+    "previousRank": 17,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "NYJ"
+  },
+  {
+    "rank": 18.0,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9.0,
+    "originalRank": 18,
+    "previousRank": 18,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "LV"
+  },
+  {
+    "rank": 19.0,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10.0,
+    "originalRank": 19,
+    "previousRank": 19,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "SEA"
+  },
+  {
+    "rank": 20.0,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10.0,
+    "originalRank": 20,
+    "previousRank": 20,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "LAR"
+  },
+  {
+    "rank": 21.0,
+    "name": "Chase Brown",
+    "position": "RB",
+    "positionRank": 11.0,
+    "originalRank": 21,
+    "previousRank": 21,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "CIN"
+  },
+  {
+    "rank": 22.0,
+    "name": "De'Von Achane",
+    "position": "RB",
+    "positionRank": 12.0,
+    "originalRank": 22,
+    "previousRank": 22,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "MIA"
+  },
+  {
+    "rank": 23.0,
+    "name": "Alvin Kamara",
+    "position": "RB",
+    "positionRank": 13.0,
+    "originalRank": 23,
+    "previousRank": 23,
+    "rankChange": 0.0,
+    "bye": 11.0,
+    "team": "NO"
+  },
+  {
+    "rank": 24.0,
+    "name": "Tyreek Hill",
+    "position": "WR",
+    "positionRank": 11.0,
+    "originalRank": 24,
+    "previousRank": 24,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "MIA"
+  },
+  {
+    "rank": 25.0,
+    "name": "Drake London",
+    "position": "WR",
+    "positionRank": 12.0,
+    "originalRank": 25,
+    "previousRank": 25,
+    "rankChange": 0.0,
+    "bye": 5.0,
+    "team": "ATL"
+  },
+  {
+    "rank": 26.0,
+    "name": "Ladd McConkey",
+    "position": "WR",
+    "positionRank": 13.0,
+    "originalRank": 26,
+    "previousRank": 26,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "LAC"
+  },
+  {
+    "rank": 27.0,
+    "name": "James Cook",
+    "position": "RB",
+    "positionRank": 14.0,
+    "originalRank": 27,
+    "previousRank": 27,
+    "rankChange": 0.0,
+    "bye": 7.0,
+    "team": "BUF"
+  },
+  {
+    "rank": 28.0,
+    "name": "Brock Bowers",
+    "position": "TE",
+    "positionRank": 1.0,
+    "originalRank": 28,
+    "previousRank": 28,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "LV"
+  },
+  {
+    "rank": 29.0,
+    "name": "Trey McBride",
+    "position": "TE",
+    "positionRank": 2.0,
+    "originalRank": 29,
+    "previousRank": 29,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "ARI"
+  },
+  {
+    "rank": 30.0,
+    "name": "Chuba Hubbard",
+    "position": "RB",
+    "positionRank": 15.0,
+    "originalRank": 30,
+    "previousRank": 30,
+    "rankChange": 0.0,
+    "bye": 14.0,
+    "team": "CAR"
+  },
+  {
+    "rank": 31.0,
+    "name": "Bucky Irving",
+    "position": "RB",
+    "positionRank": 16.0,
+    "originalRank": 31,
+    "previousRank": 31,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "TB"
+  },
+  {
+    "rank": 32.0,
+    "name": "Kenneth Walker",
+    "position": "RB",
+    "positionRank": 17.0,
+    "originalRank": 32,
+    "previousRank": 32,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "SEA"
+  },
+  {
+    "rank": 33.0,
+    "name": "Joe Mixon",
+    "position": "RB",
+    "positionRank": 18.0,
+    "originalRank": 33,
+    "previousRank": 33,
+    "rankChange": 0.0,
+    "bye": 6.0,
+    "team": "HOU"
+  },
+  {
+    "rank": 34.0,
+    "name": "Terry McLaurin",
+    "position": "WR",
+    "positionRank": 14.0,
+    "originalRank": 34,
+    "previousRank": 34,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "WAS"
+  },
+  {
+    "rank": 35.0,
+    "name": "D.J. Moore",
+    "position": "WR",
+    "positionRank": 15.0,
+    "originalRank": 35,
+    "previousRank": 35,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 36.0,
+    "name": "George Kittle",
+    "position": "TE",
+    "positionRank": 3.0,
+    "originalRank": 36,
+    "previousRank": 36,
+    "rankChange": 0.0,
+    "bye": 14.0,
+    "team": "SF"
+  },
+  {
+    "rank": 37.0,
+    "name": "Garrett Wilson",
+    "position": "WR",
+    "positionRank": 16.0,
+    "originalRank": 37,
+    "previousRank": 37,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "NYJ"
+  },
+  {
+    "rank": 38.0,
+    "name": "Lamar Jackson",
+    "position": "QB",
+    "positionRank": 1.0,
+    "originalRank": 38,
+    "previousRank": 38,
+    "rankChange": 0.0,
+    "bye": 7.0,
+    "team": "BAL"
+  },
+  {
+    "rank": 39.0,
+    "name": "Josh Allen",
+    "position": "QB",
+    "positionRank": 2.0,
+    "originalRank": 39,
+    "previousRank": 39,
+    "rankChange": 0.0,
+    "bye": 7.0,
+    "team": "BUF"
+  },
+  {
+    "rank": 40.0,
+    "name": "Tee Higgins",
+    "position": "WR",
+    "positionRank": 17.0,
+    "originalRank": 40,
+    "previousRank": 40,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "CIN"
+  },
+  {
+    "rank": 41.0,
+    "name": "Davante Adams",
+    "position": "WR",
+    "positionRank": 18.0,
+    "originalRank": 41,
+    "previousRank": 41,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "LAR"
+  },
+  {
+    "rank": 42.0,
+    "name": "Zay Flowers",
+    "position": "WR",
+    "positionRank": 19.0,
+    "originalRank": 42,
+    "previousRank": 42,
+    "rankChange": 0.0,
+    "bye": 7.0,
+    "team": "BAL"
+  },
+  {
+    "rank": 43.0,
+    "name": "Marvin Harrison",
+    "position": "WR",
+    "positionRank": 20.0,
+    "originalRank": 43,
+    "previousRank": 43,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "ARI"
+  },
+  {
+    "rank": 44.0,
+    "name": "Rashee Rice",
+    "position": "WR",
+    "positionRank": 21.0,
+    "originalRank": 44,
+    "previousRank": 44,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "KC"
+  },
+  {
+    "rank": 45.0,
+    "name": "DK Metcalf",
+    "position": "WR",
+    "positionRank": 22.0,
+    "originalRank": 45,
+    "previousRank": 45,
+    "rankChange": 0.0,
+    "bye": 5.0,
+    "team": "PIT"
+  },
+  {
+    "rank": 46.0,
+    "name": "James Conner",
+    "position": "RB",
+    "positionRank": 19.0,
+    "originalRank": 46,
+    "previousRank": 46,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "ARI"
+  },
+  {
+    "rank": 47.0,
+    "name": "DeVonta Smith",
+    "position": "WR",
+    "positionRank": 23.0,
+    "originalRank": 47,
+    "previousRank": 47,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "PHI"
+  },
+  {
+    "rank": 48.0,
+    "name": "Joe Burrow",
+    "position": "QB",
+    "positionRank": 3.0,
+    "originalRank": 48,
+    "previousRank": 48,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "CIN"
+  },
+  {
+    "rank": 49.0,
+    "name": "Jayden Daniels",
+    "position": "QB",
+    "positionRank": 4.0,
+    "originalRank": 49,
+    "previousRank": 49,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "WAS"
+  },
+  {
+    "rank": 50.0,
+    "name": "Omarion Hampton",
+    "position": "RB",
+    "positionRank": 20.0,
+    "originalRank": 50,
+    "previousRank": 50,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "LAC"
+  },
+  {
+    "rank": 51.0,
+    "name": "Mark Andrews",
+    "position": "TE",
+    "positionRank": 4.0,
+    "originalRank": 51,
+    "previousRank": 51,
+    "rankChange": 0.0,
+    "bye": 7.0,
+    "team": "BAL"
+  },
+  {
+    "rank": 52.0,
+    "name": "Sam LaPorta",
+    "position": "TE",
+    "positionRank": 5.0,
+    "originalRank": 52,
+    "previousRank": 52,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "DET"
+  },
+  {
+    "rank": 53.0,
+    "name": "T.J. Hockenson",
+    "position": "TE",
+    "positionRank": 6.0,
+    "originalRank": 53,
+    "previousRank": 53,
+    "rankChange": 0.0,
+    "bye": 6.0,
+    "team": "MIN"
+  },
+  {
+    "rank": 54.0,
+    "name": "Travis Kelce",
+    "position": "TE",
+    "positionRank": 7.0,
+    "originalRank": 54,
+    "previousRank": 54,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "KC"
+  },
+  {
+    "rank": 55.0,
+    "name": "Courtland Sutton",
+    "position": "WR",
+    "positionRank": 24.0,
+    "originalRank": 55,
+    "previousRank": 55,
+    "rankChange": 0.0,
+    "bye": 12.0,
+    "team": "DEN"
+  },
+  {
+    "rank": 56.0,
+    "name": "Mike Evans",
+    "position": "WR",
+    "positionRank": 25.0,
+    "originalRank": 56,
+    "previousRank": 56,
+    "rankChange": 0.0,
+    "bye": 9.0,
+    "team": "TB"
+  },
+  {
+    "rank": 57.0,
+    "name": "Jameson Williams",
+    "position": "WR",
+    "positionRank": 26.0,
+    "originalRank": 58,
+    "previousRank": 58,
+    "rankChange": 1.0,
+    "bye": 8.0,
+    "team": "DET"
+  },
+  {
+    "rank": 58.0,
+    "name": "Ricky Pearsall",
+    "position": "WR",
+    "positionRank": 27.0,
+    "originalRank": 59,
+    "previousRank": 59,
+    "rankChange": 1.0,
+    "bye": 14.0,
+    "team": "SF"
+  },
+  {
+    "rank": 59.0,
+    "name": "George Pickens",
+    "position": "WR",
+    "positionRank": 28.0,
+    "originalRank": 60,
+    "previousRank": 60,
+    "rankChange": 1.0,
+    "bye": 10.0,
+    "team": "DAL"
+  },
+  {
+    "rank": 60.0,
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "positionRank": 5.0,
+    "originalRank": 61,
+    "previousRank": 61,
+    "rankChange": 1.0,
+    "bye": 10.0,
+    "team": "KC"
+  },
+  {
+    "rank": 61.0,
+    "name": "Jalen Hurts",
+    "position": "QB",
+    "positionRank": 6.0,
+    "originalRank": 62,
+    "previousRank": 62,
+    "rankChange": 1.0,
+    "bye": 9.0,
+    "team": "PHI"
+  },
+  {
+    "rank": 62.0,
+    "name": "Tyrone Tracy",
+    "position": "RB",
+    "positionRank": 21.0,
+    "originalRank": 63,
+    "previousRank": 63,
+    "rankChange": 1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 63.0,
+    "name": "Aaron Jones",
+    "position": "RB",
+    "positionRank": 22.0,
+    "originalRank": 64,
+    "previousRank": 64,
+    "rankChange": 1.0,
+    "bye": 6.0,
+    "team": "MIN"
+  },
+  {
+    "rank": 64.0,
+    "name": "David Montgomery",
+    "position": "RB",
+    "positionRank": 23.0,
+    "originalRank": 65,
+    "previousRank": 65,
+    "rankChange": 1.0,
+    "bye": 8.0,
+    "team": "DET"
+  },
+  {
+    "rank": 65.0,
+    "name": "Tony Pollard",
+    "position": "RB",
+    "positionRank": 24.0,
+    "originalRank": 66,
+    "previousRank": 66,
+    "rankChange": 1.0,
+    "bye": 10.0,
+    "team": "TEN"
+  },
+  {
+    "rank": 66.0,
+    "name": "D'Andre Swift",
+    "position": "RB",
+    "positionRank": 25.0,
+    "originalRank": 67,
+    "previousRank": 67,
+    "rankChange": 1.0,
+    "bye": 5.0,
+    "team": "CHI"
+  },
+  {
+    "rank": 67.0,
+    "name": "Chris Olave",
+    "position": "WR",
+    "positionRank": 29.0,
+    "originalRank": 68,
+    "previousRank": 68,
+    "rankChange": 1.0,
+    "bye": 11.0,
+    "team": "NO"
+  },
+  {
+    "rank": 68.0,
+    "name": "Jaylen Warren",
+    "position": "RB",
+    "positionRank": 26.0,
+    "originalRank": 69,
+    "previousRank": 69,
+    "rankChange": 1.0,
+    "bye": 5.0,
+    "team": "PIT"
+  },
+  {
+    "rank": 69.0,
+    "name": "Jerry Jeudy",
+    "position": "WR",
+    "positionRank": 30.0,
+    "originalRank": 70,
+    "previousRank": 70,
+    "rankChange": 1.0,
+    "bye": 9.0,
+    "team": "CLE"
+  },
+  {
+    "rank": 70.0,
+    "name": "Jaylen Waddle",
+    "position": "WR",
+    "positionRank": 31.0,
+    "originalRank": 71,
+    "previousRank": 71,
+    "rankChange": 1.0,
+    "bye": 12.0,
+    "team": "MIA"
+  },
+  {
+    "rank": 71.0,
+    "name": "Calvin Ridley",
+    "position": "WR",
+    "positionRank": 32.0,
+    "originalRank": 72,
+    "previousRank": 72,
+    "rankChange": 1.0,
+    "bye": 10.0,
+    "team": "TEN"
+  },
+  {
+    "rank": 72.0,
+    "name": "Tetairoa McMillan",
+    "position": "WR",
+    "positionRank": 33.0,
+    "originalRank": 98,
+    "previousRank": 98,
+    "rankChange": 26.0,
+    "bye": 14.0,
+    "team": "CAR"
+  },
+  {
+    "rank": 73.0,
+    "name": "Jordan Addison",
+    "position": "WR",
+    "positionRank": 34.0,
+    "originalRank": 57,
+    "previousRank": 57,
+    "rankChange": -16.0,
+    "bye": 6.0,
+    "team": "MIN"
+  },
+  {
+    "rank": 74.0,
+    "name": "Chris Godwin",
+    "position": "WR",
+    "positionRank": 35.0,
+    "originalRank": 73,
+    "previousRank": 73,
+    "rankChange": -1.0,
+    "bye": 9.0,
+    "team": "TB"
+  },
+  {
+    "rank": 75.0,
+    "name": "Isiah Pacheco",
+    "position": "RB",
+    "positionRank": 27.0,
+    "originalRank": 74,
+    "previousRank": 74,
+    "rankChange": -1.0,
+    "bye": 10.0,
+    "team": "KC"
+  },
+  {
+    "rank": 76.0,
+    "name": "Travis Etienne",
+    "position": "RB",
+    "positionRank": 28.0,
+    "originalRank": 75,
+    "previousRank": 75,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 77.0,
+    "name": "J.K. Dobbins",
+    "position": "RB",
+    "positionRank": 29.0,
+    "originalRank": 76,
+    "previousRank": 76,
+    "rankChange": -1.0,
+    "bye": 12.0,
+    "team": "DEN"
+  },
+  {
+    "rank": 78.0,
+    "name": "Jauan Jennings",
+    "position": "WR",
+    "positionRank": 36.0,
+    "originalRank": 77,
+    "previousRank": 77,
+    "rankChange": -1.0,
+    "bye": 14.0,
+    "team": "SF"
+  },
+  {
+    "rank": 79.0,
+    "name": "Rome Odunze",
+    "position": "WR",
+    "positionRank": 37.0,
+    "originalRank": 78,
+    "previousRank": 78,
+    "rankChange": -1.0,
+    "bye": 5.0,
+    "team": "CHI"
+  },
+  {
+    "rank": 80.0,
+    "name": "Rachaad White",
+    "position": "RB",
+    "positionRank": 30.0,
+    "originalRank": 79,
+    "previousRank": 79,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 81.0,
+    "name": "Deebo Samuel",
+    "position": "WR",
+    "positionRank": 38.0,
+    "originalRank": 80,
+    "previousRank": 80,
+    "rankChange": -1.0,
+    "bye": 12.0,
+    "team": "WAS"
+  },
+  {
+    "rank": 82.0,
+    "name": "Jakobi Meyers",
+    "position": "WR",
+    "positionRank": 39.0,
+    "originalRank": 81,
+    "previousRank": 81,
+    "rankChange": -1.0,
+    "bye": 8.0,
+    "team": "LV"
+  },
+  {
+    "rank": 83.0,
+    "name": "Travis Hunter",
+    "position": "WR",
+    "positionRank": 40.0,
+    "originalRank": 83,
+    "previousRank": 83,
+    "rankChange": 0.0,
+    "bye": 8.0,
+    "team": "JAX"
+  },
+  {
+    "rank": 84.0,
+    "name": "Xavier Worthy",
+    "position": "WR",
+    "positionRank": 41.0,
+    "originalRank": 84,
+    "previousRank": 84,
+    "rankChange": 0.0,
+    "bye": 10.0,
+    "team": "KC"
+  },
+  {
+    "rank": 85.0,
+    "name": "Stefon Diggs",
+    "position": "WR",
+    "positionRank": 42.0,
+    "originalRank": 85,
+    "previousRank": 85,
+    "rankChange": 0.0,
+    "bye": 14.0,
+    "team": "NE"
+  },
+  {
+    "rank": 86.0,
+    "name": "Emeka Egbuka",
+    "position": "WR",
+    "positionRank": 43.0,
+    "originalRank": 116,
+    "previousRank": 116,
+    "rankChange": 30.0,
+    "bye": 9.0,
+    "team": "TB"
+  },
+  {
+    "rank": 87.0,
+    "name": "Jayden Reed",
+    "position": "WR",
+    "positionRank": 44.0,
+    "originalRank": 82,
+    "previousRank": 82,
+    "rankChange": -5.0,
+    "bye": 5.0,
+    "team": "GB"
+  },
+  {
+    "rank": 88.0,
+    "name": "Cooper Kupp",
+    "position": "WR",
+    "positionRank": 45.0,
+    "originalRank": 86,
+    "previousRank": 86,
+    "rankChange": -2.0,
+    "bye": 8.0,
+    "team": "SEA"
+  },
+  {
+    "rank": 89.0,
+    "name": "Austin Ekeler",
+    "position": "RB",
+    "positionRank": 31.0,
+    "originalRank": 88,
+    "previousRank": 88,
+    "rankChange": -1.0,
+    "bye": 12.0,
+    "team": "WAS"
+  },
+  {
+    "rank": 90.0,
+    "name": "Tank Bigsby",
+    "position": "RB",
+    "positionRank": 32.0,
+    "originalRank": 89,
+    "previousRank": 89,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 91.0,
+    "name": "Kaleb Johnson",
+    "position": "RB",
+    "positionRank": 33.0,
+    "originalRank": 90,
+    "previousRank": 90,
+    "rankChange": -1.0,
+    "bye": 5.0,
+    "team": "PIT"
+  },
+  {
+    "rank": 92.0,
+    "name": "Brian Robinson",
+    "position": "RB",
+    "positionRank": 34.0,
+    "originalRank": 91,
+    "previousRank": 91,
+    "rankChange": -1.0,
+    "bye": 12.0,
+    "team": "WAS"
+  },
+  {
+    "rank": 93.0,
+    "name": "TreVeyon Henderson",
+    "position": "RB",
+    "positionRank": 35.0,
+    "originalRank": 92,
+    "previousRank": 92,
+    "rankChange": -1.0,
+    "bye": 14.0,
+    "team": "NE"
+  },
+  {
+    "rank": 94.0,
+    "name": "R.J. Harvey",
+    "position": "RB",
+    "positionRank": 36.0,
+    "originalRank": 93,
+    "previousRank": 93,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 95.0,
+    "name": "Jerome Ford",
+    "position": "RB",
+    "positionRank": 37.0,
+    "originalRank": 94,
+    "previousRank": 94,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 96.0,
+    "name": "Michael Pittman",
+    "position": "WR",
+    "positionRank": 46.0,
+    "originalRank": 95,
+    "previousRank": 95,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 97.0,
+    "name": "Khalil Shakir",
+    "position": "WR",
+    "positionRank": 47.0,
+    "originalRank": 96,
+    "previousRank": 96,
+    "rankChange": -1.0,
+    "bye": 7.0,
+    "team": "BUF"
+  },
+  {
+    "rank": 98.0,
+    "name": "Zach Charbonnet",
+    "position": "RB",
+    "positionRank": 38.0,
+    "originalRank": 97,
+    "previousRank": 97,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 99.0,
+    "name": "Keenan Allen",
+    "position": "WR",
+    "positionRank": 48.0,
+    "originalRank": 99,
+    "previousRank": 99,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 100.0,
+    "name": "Josh Downs",
+    "position": "WR",
+    "positionRank": 49.0,
+    "originalRank": 99,
+    "previousRank": 99,
+    "rankChange": -1.0,
+    "bye": 11.0,
+    "team": "IND"
+  },
+  {
+    "rank": 101.0,
+    "name": "Najee Harris",
+    "position": "RB",
+    "positionRank": 39.0,
+    "originalRank": 100,
+    "previousRank": 100,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 102.0,
+    "name": "Justin Herbert",
+    "position": "QB",
+    "positionRank": 7.0,
+    "originalRank": 101,
+    "previousRank": 101,
+    "rankChange": -1.0,
+    "bye": 12.0,
+    "team": "LAC"
+  },
+  {
+    "rank": 103.0,
+    "name": "Jared Goff",
+    "position": "QB",
+    "positionRank": 8.0,
+    "originalRank": 102,
+    "previousRank": 102,
+    "rankChange": -1.0,
+    "bye": 8.0,
+    "team": "DET"
+  },
+  {
+    "rank": 104.0,
+    "name": "Rhamondre Stevenson",
+    "position": "RB",
+    "positionRank": 40.0,
+    "originalRank": 103,
+    "previousRank": 103,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 105.0,
+    "name": "Jordan Mason",
+    "position": "RB",
+    "positionRank": 41.0,
+    "originalRank": 104,
+    "previousRank": 104,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 106.0,
+    "name": "Brandon Aiyuk",
+    "position": "WR",
+    "positionRank": 50.0,
+    "originalRank": 105,
+    "previousRank": 105,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 107.0,
+    "name": "Javonte Williams",
+    "position": "RB",
+    "positionRank": 42.0,
+    "originalRank": 107,
+    "previousRank": 107,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 108.0,
+    "name": "Jaylen Wright",
+    "position": "RB",
+    "positionRank": 43.0,
+    "originalRank": 108,
+    "previousRank": 108,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 109.0,
+    "name": "Ray Davis",
+    "position": "RB",
+    "positionRank": 44.0,
+    "originalRank": 109,
+    "previousRank": 109,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 110.0,
+    "name": "Colston Loveland",
+    "position": "TE",
+    "positionRank": 8.0,
+    "originalRank": 110,
+    "previousRank": 110,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 111.0,
+    "name": "Tyler Warren",
+    "position": "TE",
+    "positionRank": 9.0,
+    "originalRank": 111,
+    "previousRank": 111,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 112.0,
+    "name": "Dalton Kincaid",
+    "position": "TE",
+    "positionRank": 10.0,
+    "originalRank": 112,
+    "previousRank": 112,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 113.0,
+    "name": "Tucker Kraft",
+    "position": "TE",
+    "positionRank": 11.0,
+    "originalRank": 113,
+    "previousRank": 113,
+    "rankChange": 0.0,
+    "bye": 5.0,
+    "team": "GB"
+  },
+  {
+    "rank": 114.0,
+    "name": "Matthew Golden",
+    "position": "WR",
+    "positionRank": 51.0,
+    "originalRank": 114,
+    "previousRank": 114,
+    "rankChange": 0.0,
+    "bye": 5.0,
+    "team": "GB"
+  },
+  {
+    "rank": 115.0,
+    "name": "Luther Burden",
+    "position": "WR",
+    "positionRank": 52.0,
+    "originalRank": 115,
+    "previousRank": 115,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 116.0,
+    "name": "Jayden Higgins",
+    "position": "WR",
+    "positionRank": 53.0,
+    "originalRank": 117,
+    "previousRank": 117,
+    "rankChange": 1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 117.0,
+    "name": "C.J. Stroud",
+    "position": "QB",
+    "positionRank": 9.0,
+    "originalRank": 118,
+    "previousRank": 118,
+    "rankChange": 1.0,
+    "bye": 6.0,
+    "team": "HOU"
+  },
+  {
+    "rank": 118.0,
+    "name": "Brock Purdy",
+    "position": "QB",
+    "positionRank": 10.0,
+    "originalRank": 119,
+    "previousRank": 119,
+    "rankChange": 1.0,
+    "bye": 14.0,
+    "team": "SF"
+  },
+  {
+    "rank": 119.0,
+    "name": "Jordan Love",
+    "position": "QB",
+    "positionRank": 11.0,
+    "originalRank": 120,
+    "previousRank": 120,
+    "rankChange": 1.0,
+    "bye": 5.0,
+    "team": "GB"
+  },
+  {
+    "rank": 120.0,
+    "name": "Baker Mayfield",
+    "position": "QB",
+    "positionRank": 12.0,
+    "originalRank": 121,
+    "previousRank": 121,
+    "rankChange": 1.0,
+    "bye": 9.0,
+    "team": "TB"
+  },
+  {
+    "rank": 121.0,
+    "name": "Tyler Allgeier",
+    "position": "RB",
+    "positionRank": 45.0,
+    "originalRank": 123,
+    "previousRank": 123,
+    "rankChange": 2.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 122.0,
+    "name": "Cam Skattebo",
+    "position": "RB",
+    "positionRank": 46.0,
+    "originalRank": 124,
+    "previousRank": 124,
+    "rankChange": 2.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 123.0,
+    "name": "Blake Corum",
+    "position": "RB",
+    "positionRank": 47.0,
+    "originalRank": 125,
+    "previousRank": 125,
+    "rankChange": 2.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 124.0,
+    "name": "Rico Dowdle",
+    "position": "RB",
+    "positionRank": 48.0,
+    "originalRank": 126,
+    "previousRank": 126,
+    "rankChange": 2.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 125.0,
+    "name": "Christian Kirk",
+    "position": "WR",
+    "positionRank": 54.0,
+    "originalRank": 127,
+    "previousRank": 127,
+    "rankChange": 2.0,
+    "bye": 6.0,
+    "team": "HOU"
+  },
+  {
+    "rank": 126.0,
+    "name": "Keon Coleman",
+    "position": "WR",
+    "positionRank": 55.0,
+    "originalRank": 128,
+    "previousRank": 128,
+    "rankChange": 2.0,
+    "bye": 7.0,
+    "team": "BUF"
+  },
+  {
+    "rank": 127.0,
+    "name": "Darnell Mooney",
+    "position": "WR",
+    "positionRank": 56.0,
+    "originalRank": 129,
+    "previousRank": 129,
+    "rankChange": 2.0,
+    "bye": 5.0,
+    "team": "ATL"
+  },
+  {
+    "rank": 128.0,
+    "name": "Demario Douglas",
+    "position": "WR",
+    "positionRank": 57.0,
+    "originalRank": 191,
+    "previousRank": 191,
+    "rankChange": 63.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 129.0,
+    "name": "Adam Thielen",
+    "position": "WR",
+    "positionRank": 58.0,
+    "originalRank": 130,
+    "previousRank": 130,
+    "rankChange": 1.0,
+    "bye": 14.0,
+    "team": "CAR"
+  },
+  {
+    "rank": 130.0,
+    "name": "Romeo Doubs",
+    "position": "WR",
+    "positionRank": 59.0,
+    "originalRank": 131,
+    "previousRank": 131,
+    "rankChange": 1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 131.0,
+    "name": "Evan Engram",
+    "position": "TE",
+    "positionRank": 12.0,
+    "originalRank": 132,
+    "previousRank": 132,
+    "rankChange": 1.0,
+    "bye": 12.0,
+    "team": "DEN"
+  },
+  {
+    "rank": 132.0,
+    "name": "Dallas Goedert",
+    "position": "TE",
+    "positionRank": 13.0,
+    "originalRank": 133,
+    "previousRank": 133,
+    "rankChange": 1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 133.0,
+    "name": "David Njoku",
+    "position": "TE",
+    "positionRank": 14.0,
+    "originalRank": 134,
+    "previousRank": 134,
+    "rankChange": 1.0,
+    "bye": 9.0,
+    "team": "CLE"
+  },
+  {
+    "rank": 134.0,
+    "name": "Jonnu Smith",
+    "position": "TE",
+    "positionRank": 15.0,
+    "originalRank": 87,
+    "previousRank": 87,
+    "rankChange": -47.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 135.0,
+    "name": "Trey Benson",
+    "position": "RB",
+    "positionRank": 49.0,
+    "originalRank": 135,
+    "previousRank": 135,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 136.0,
+    "name": "Dylan Sampson",
+    "position": "RB",
+    "positionRank": 50.0,
+    "originalRank": 137,
+    "previousRank": 137,
+    "rankChange": 1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 137.0,
+    "name": "Tyjae Spears",
+    "position": "RB",
+    "positionRank": 51.0,
+    "originalRank": 106,
+    "previousRank": 106,
+    "rankChange": -31.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 138.0,
+    "name": "Keaton Mitchell",
+    "position": "RB",
+    "positionRank": 52.0,
+    "originalRank": 138,
+    "previousRank": 138,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 139.0,
+    "name": "Braelon Allen",
+    "position": "RB",
+    "positionRank": 53.0,
+    "originalRank": 139,
+    "previousRank": 139,
+    "rankChange": 0.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 140.0,
+    "name": "Isaac Guerendo",
+    "position": "RB",
+    "positionRank": 54.0,
+    "originalRank": 136,
+    "previousRank": 136,
+    "rankChange": -4.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 141.0,
+    "name": "Rashid Shaheed",
+    "position": "WR",
+    "positionRank": 60.0,
+    "originalRank": 140,
+    "previousRank": 140,
+    "rankChange": -1.0,
+    "bye": 11.0,
+    "team": "NO"
+  },
+  {
+    "rank": 142.0,
+    "name": "Cedric Tillman",
+    "position": "WR",
+    "positionRank": 61.0,
+    "originalRank": 141,
+    "previousRank": 141,
+    "rankChange": -1.0,
+    "bye": 9.0,
+    "team": "CLE"
+  },
+  {
+    "rank": 143.0,
+    "name": "Jalen McMillan",
+    "position": "WR",
+    "positionRank": 62.0,
+    "originalRank": 142,
+    "previousRank": 142,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 144.0,
+    "name": "Wan'Dale Robinson",
+    "position": "WR",
+    "positionRank": 63.0,
+    "originalRank": 143,
+    "previousRank": 143,
+    "rankChange": -1.0,
+    "bye": 14.0,
+    "team": "NYG"
+  },
+  {
+    "rank": 145.0,
+    "name": "Kyler Murray",
+    "position": "QB",
+    "positionRank": 13.0,
+    "originalRank": 144,
+    "previousRank": 144,
+    "rankChange": -1.0,
+    "bye": 8.0,
+    "team": "ARI"
+  },
+  {
+    "rank": 146.0,
+    "name": "Drake Maye",
+    "position": "QB",
+    "positionRank": 14.0,
+    "originalRank": 145,
+    "previousRank": 145,
+    "rankChange": -1.0,
+    "bye": 14.0,
+    "team": "NE"
+  },
+  {
+    "rank": 147.0,
+    "name": "Caleb Williams",
+    "position": "QB",
+    "positionRank": 15.0,
+    "originalRank": 146,
+    "previousRank": 146,
+    "rankChange": -1.0,
+    "bye": 5.0,
+    "team": "CHI"
+  },
+  {
+    "rank": 148.0,
+    "name": "Jaylin Noel",
+    "position": "WR",
+    "positionRank": 64.0,
+    "originalRank": 147,
+    "previousRank": 147,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 149.0,
+    "name": "Xavier Legette",
+    "position": "WR",
+    "positionRank": 65.0,
+    "originalRank": 148,
+    "previousRank": 148,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 150.0,
+    "name": "Rashod Bateman",
+    "position": "WR",
+    "positionRank": 66.0,
+    "originalRank": 149,
+    "previousRank": 149,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 151.0,
+    "name": "Dontayvion Wicks",
+    "position": "WR",
+    "positionRank": 67.0,
+    "originalRank": 150,
+    "previousRank": 150,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 152.0,
+    "name": "Alec Pierce",
+    "position": "WR",
+    "positionRank": 68.0,
+    "originalRank": 151,
+    "previousRank": 151,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 153.0,
+    "name": "Kendre Miller",
+    "position": "RB",
+    "positionRank": 55.0,
+    "originalRank": 152,
+    "previousRank": 152,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 154.0,
+    "name": "Woody Marks",
+    "position": "RB",
+    "positionRank": 56.0,
+    "originalRank": 153,
+    "previousRank": 153,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 155.0,
+    "name": "Elijah Mitchell",
+    "position": "RB",
+    "positionRank": 57.0,
+    "originalRank": 154,
+    "previousRank": 154,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 156.0,
+    "name": "MarShawn Lloyd",
+    "position": "RB",
+    "positionRank": 58.0,
+    "originalRank": 155,
+    "previousRank": 155,
+    "rankChange": -1.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 157.0,
+    "name": "Jordan James",
+    "position": "RB",
+    "positionRank": 59.0,
+    "originalRank": 200,
+    "previousRank": 200,
+    "rankChange": 43.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 158.0,
+    "name": "Quinshon Judkins",
+    "position": "RB",
+    "positionRank": 60.0,
+    "originalRank": 122,
+    "previousRank": 122,
+    "rankChange": -36.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 159.0,
+    "name": "Trevor Etienne",
+    "position": "RB",
+    "positionRank": 61.0,
+    "originalRank": 156,
+    "previousRank": 156,
+    "rankChange": -3.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 160.0,
+    "name": "Will Shipley",
+    "position": "RB",
+    "positionRank": 62.0,
+    "originalRank": 157,
+    "previousRank": 157,
+    "rankChange": -3.0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 161,
+    "name": "Josh Palmer",
+    "position": "WR",
+    "positionRank": 75.0,
+    "originalRank": 181,
+    "previousRank": 181,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 162,
+    "name": "Bo Nix",
+    "position": "QB",
+    "positionRank": 20.0,
+    "originalRank": 178,
+    "previousRank": 178,
+    "rankChange": null,
+    "bye": 12.0,
+    "team": "DEN"
+  },
+  {
+    "rank": 163,
+    "name": "Dak Prescott",
+    "position": "QB",
+    "positionRank": 17.0,
+    "originalRank": 175,
+    "previousRank": 175,
+    "rankChange": null,
+    "bye": 10.0,
+    "team": "DAL"
+  },
+  {
+    "rank": 164,
+    "name": "DJ Giddens",
+    "position": "RB",
+    "positionRank": 66.0,
+    "originalRank": 171,
+    "previousRank": 171,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 165,
+    "name": "Isaiah Likely",
+    "position": "TE",
+    "positionRank": 18.0,
+    "originalRank": 169,
+    "previousRank": 169,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 166,
+    "name": "Tahj Brooks",
+    "position": "RB",
+    "positionRank": 63.0,
+    "originalRank": 159,
+    "previousRank": 159,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 167,
+    "name": "Audric Estim\u00e9",
+    "position": "RB",
+    "positionRank": 70.0,
+    "originalRank": 184,
+    "previousRank": 184,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 168,
+    "name": "Tre Harris",
+    "position": "WR",
+    "positionRank": 69.0,
+    "originalRank": 163,
+    "previousRank": 163,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 169,
+    "name": "Diontae Johnson",
+    "position": "WR",
+    "positionRank": 79.0,
+    "originalRank": 192,
+    "previousRank": 192,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 170,
+    "name": "Justice Hill",
+    "position": "RB",
+    "positionRank": 73.0,
+    "originalRank": 187,
+    "previousRank": 187,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 171,
+    "name": "Michael Wilson",
+    "position": "WR",
+    "positionRank": 72.0,
+    "originalRank": 166,
+    "previousRank": 166,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 172,
+    "name": "Tua Tagovailoa",
+    "position": "QB",
+    "positionRank": 18.0,
+    "originalRank": 176,
+    "previousRank": 176,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 173,
+    "name": "Quentin Johnston",
+    "position": "WR",
+    "positionRank": 67.0,
+    "originalRank": 161,
+    "previousRank": 161,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 174,
+    "name": "Kenneth Gainwell",
+    "position": "RB",
+    "positionRank": 74.0,
+    "originalRank": 188,
+    "previousRank": 188,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 175,
+    "name": "Marquise Brown",
+    "position": "WR",
+    "positionRank": 70.0,
+    "originalRank": 164,
+    "previousRank": 164,
+    "rankChange": null,
+    "bye": 10.0,
+    "team": "KC"
+  },
+  {
+    "rank": 176,
+    "name": "Geno Smith",
+    "position": "QB",
+    "positionRank": 25.0,
+    "originalRank": 197,
+    "previousRank": 197,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 177,
+    "name": "DeAndre Hopkins",
+    "position": "WR",
+    "positionRank": 73.0,
+    "originalRank": 179,
+    "previousRank": 179,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 178,
+    "name": "Kimani Vidal",
+    "position": "RB",
+    "positionRank": 72.0,
+    "originalRank": 186,
+    "previousRank": 186,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 179,
+    "name": "Michael Penix",
+    "position": "QB",
+    "positionRank": 23.0,
+    "originalRank": 195,
+    "previousRank": 195,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 180,
+    "name": "Jack Bech",
+    "position": "WR",
+    "positionRank": 68.0,
+    "originalRank": 162,
+    "previousRank": 162,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 181,
+    "name": "Jaydon Blue",
+    "position": "RB",
+    "positionRank": 62.0,
+    "originalRank": 158,
+    "previousRank": 158,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 182,
+    "name": "Nick Chubb",
+    "position": "RB",
+    "positionRank": 64.0,
+    "originalRank": 160,
+    "previousRank": 160,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 183,
+    "name": "Jalen Royals",
+    "position": "WR",
+    "positionRank": 77.0,
+    "originalRank": 190,
+    "previousRank": 190,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 184,
+    "name": "Ty Johnson",
+    "position": "RB",
+    "positionRank": 75.0,
+    "originalRank": 189,
+    "previousRank": 189,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 185,
+    "name": "Cade Otton",
+    "position": "TE",
+    "positionRank": 16.0,
+    "originalRank": 167,
+    "previousRank": 167,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 186,
+    "name": "Kyle Williams",
+    "position": "WR",
+    "positionRank": 71.0,
+    "originalRank": 165,
+    "previousRank": 165,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 187,
+    "name": "Jalen Coker",
+    "position": "WR",
+    "positionRank": 74.0,
+    "originalRank": 180,
+    "previousRank": 180,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 188,
+    "name": "Dameon Pierce",
+    "position": "RB",
+    "positionRank": 71.0,
+    "originalRank": 185,
+    "previousRank": 185,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 189,
+    "name": "Kyle Pitts",
+    "position": "TE",
+    "positionRank": 17.0,
+    "originalRank": 168,
+    "previousRank": 168,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 190,
+    "name": "Justin Fields",
+    "position": "QB",
+    "positionRank": 16.0,
+    "originalRank": 174,
+    "previousRank": 174,
+    "rankChange": null,
+    "bye": 9.0,
+    "team": "NYJ"
+  },
+  {
+    "rank": 191,
+    "name": "Antonio Gibson",
+    "position": "RB",
+    "positionRank": 67.0,
+    "originalRank": 172,
+    "previousRank": 172,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 192,
+    "name": "Brashard Smith",
+    "position": "RB",
+    "positionRank": 68.0,
+    "originalRank": 173,
+    "previousRank": 173,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 193,
+    "name": "Bryce Young",
+    "position": "QB",
+    "positionRank": 24.0,
+    "originalRank": 196,
+    "previousRank": 196,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 194,
+    "name": "Elic Ayomanor",
+    "position": "WR",
+    "positionRank": 80.0,
+    "originalRank": 199,
+    "previousRank": 199,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 195,
+    "name": "Damien Martinez",
+    "position": "RB",
+    "positionRank": 65.0,
+    "originalRank": 170,
+    "previousRank": 170,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 196,
+    "name": "Matthew Stafford",
+    "position": "QB",
+    "positionRank": 22.0,
+    "originalRank": 194,
+    "previousRank": 194,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 197,
+    "name": "Roschon Johnson",
+    "position": "RB",
+    "positionRank": 69.0,
+    "originalRank": 183,
+    "previousRank": 183,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 198,
+    "name": "Sam Darnold",
+    "position": "QB",
+    "positionRank": 26.0,
+    "originalRank": 198,
+    "previousRank": 198,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 199,
+    "name": "Trevor Lawrence",
+    "position": "QB",
+    "positionRank": 21.0,
+    "originalRank": 193,
+    "previousRank": 193,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 200,
+    "name": "J.J. McCarthy",
+    "position": "QB",
+    "positionRank": 19.0,
+    "originalRank": 177,
+    "previousRank": 177,
+    "rankChange": null,
+    "bye": 6.0,
+    "team": "MIN"
+  },
+  {
+    "rank": 201,
+    "name": "Marvin Mims",
+    "position": "WR",
+    "positionRank": 76.0,
+    "originalRank": 182,
+    "previousRank": 182,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  }
+]
+
+
+=== src/data/players_8_19_2025_enriched_full.json ===
+[
+  {
+    "rank": 1,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1,
+    "originalRank": 1,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 2,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2,
+    "originalRank": 2,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 3,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3,
+    "originalRank": 3,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 4,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1,
+    "originalRank": 4,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 5,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2,
+    "originalRank": 5,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 6,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3,
+    "originalRank": 6,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 7,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4,
+    "originalRank": 7,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 8,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5,
+    "originalRank": 8,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 9,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4,
+    "originalRank": 9,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 10,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5,
+    "originalRank": 10,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 11,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6,
+    "originalRank": 11,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 12,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7,
+    "originalRank": 12,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 13,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6,
+    "originalRank": 13,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 14,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7,
+    "originalRank": 14,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 15,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8,
+    "originalRank": 15,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 16,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9,
+    "originalRank": 16,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 17,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8,
+    "originalRank": 17,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 18,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9,
+    "originalRank": 18,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 19,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10,
+    "originalRank": 19,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 20,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10,
+    "originalRank": 20,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 21,
+    "name": "Chase Brown",
+    "position": "RB",
+    "positionRank": 11,
+    "originalRank": 21,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 22,
+    "name": "De'Von Achane",
+    "position": "RB",
+    "positionRank": 12,
+    "originalRank": 22,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 23,
+    "name": "Alvin Kamara",
+    "position": "RB",
+    "positionRank": 13,
+    "originalRank": 23,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 24,
+    "name": "Tyreek Hill",
+    "position": "WR",
+    "positionRank": 11,
+    "originalRank": 24,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 25,
+    "name": "Drake London",
+    "position": "WR",
+    "positionRank": 12,
+    "originalRank": 25,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 26,
+    "name": "Ladd McConkey",
+    "position": "WR",
+    "positionRank": 13,
+    "originalRank": 26,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 27,
+    "name": "James Cook",
+    "position": "RB",
+    "positionRank": 14,
+    "originalRank": 27,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 28,
+    "name": "Brock Bowers",
+    "position": "TE",
+    "positionRank": 1,
+    "originalRank": 28,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 29,
+    "name": "Trey McBride",
+    "position": "TE",
+    "positionRank": 2,
+    "originalRank": 29,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 30,
+    "name": "Chuba Hubbard",
+    "position": "RB",
+    "positionRank": 15,
+    "originalRank": 30,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 31,
+    "name": "Bucky Irving",
+    "position": "RB",
+    "positionRank": 16,
+    "originalRank": 31,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 32,
+    "name": "Kenneth Walker",
+    "position": "RB",
+    "positionRank": 17,
+    "originalRank": 32,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 33,
+    "name": "Terry McLaurin",
+    "position": "WR",
+    "positionRank": 14,
+    "originalRank": 33,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 34,
+    "name": "D.J. Moore",
+    "position": "WR",
+    "positionRank": 15,
+    "originalRank": 34,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 35,
+    "name": "George Kittle",
+    "position": "TE",
+    "positionRank": 3,
+    "originalRank": 35,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 36,
+    "name": "Garrett Wilson",
+    "position": "WR",
+    "positionRank": 16,
+    "originalRank": 36,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 37,
+    "name": "Lamar Jackson",
+    "position": "QB",
+    "positionRank": 1,
+    "originalRank": 37,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 38,
+    "name": "Josh Allen",
+    "position": "QB",
+    "positionRank": 2,
+    "originalRank": 38,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 39,
+    "name": "Tee Higgins",
+    "position": "WR",
+    "positionRank": 17,
+    "originalRank": 39,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 40,
+    "name": "Davante Adams",
+    "position": "WR",
+    "positionRank": 18,
+    "originalRank": 40,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 41,
+    "name": "Zay Flowers",
+    "position": "WR",
+    "positionRank": 19,
+    "originalRank": 41,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 42,
+    "name": "Marvin Harrison",
+    "position": "WR",
+    "positionRank": 20,
+    "originalRank": 42,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 43,
+    "name": "DK Metcalf",
+    "position": "WR",
+    "positionRank": 21,
+    "originalRank": 43,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 44,
+    "name": "James Conner",
+    "position": "RB",
+    "positionRank": 18,
+    "originalRank": 44,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 45,
+    "name": "DeVonta Smith",
+    "position": "WR",
+    "positionRank": 22,
+    "originalRank": 45,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 46,
+    "name": "Joe Burrow",
+    "position": "QB",
+    "positionRank": 3,
+    "originalRank": 46,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 47,
+    "name": "Jayden Daniels",
+    "position": "QB",
+    "positionRank": 4,
+    "originalRank": 47,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 48,
+    "name": "Omarion Hampton",
+    "position": "RB",
+    "positionRank": 19,
+    "originalRank": 48,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 49,
+    "name": "Mark Andrews",
+    "position": "TE",
+    "positionRank": 4,
+    "originalRank": 49,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 50,
+    "name": "Sam LaPorta",
+    "position": "TE",
+    "positionRank": 5,
+    "originalRank": 50,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 51,
+    "name": "T.J. Hockenson",
+    "position": "TE",
+    "positionRank": 6,
+    "originalRank": 51,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 52,
+    "name": "Travis Kelce",
+    "position": "TE",
+    "positionRank": 7,
+    "originalRank": 52,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 53,
+    "name": "Courtland Sutton",
+    "position": "WR",
+    "positionRank": 23,
+    "originalRank": 53,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 54,
+    "name": "Mike Evans",
+    "position": "WR",
+    "positionRank": 24,
+    "originalRank": 54,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 55,
+    "name": "Jameson Williams",
+    "position": "WR",
+    "positionRank": 25,
+    "originalRank": 55,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 56,
+    "name": "Ricky Pearsall",
+    "position": "WR",
+    "positionRank": 26,
+    "originalRank": 56,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 57,
+    "name": "George Pickens",
+    "position": "WR",
+    "positionRank": 27,
+    "originalRank": 57,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 58,
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "positionRank": 5,
+    "originalRank": 58,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 59,
+    "name": "Jalen Hurts",
+    "position": "QB",
+    "positionRank": 6,
+    "originalRank": 59,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 60,
+    "name": "Tyrone Tracy",
+    "position": "RB",
+    "positionRank": 20,
+    "originalRank": 60,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 61,
+    "name": "Aaron Jones",
+    "position": "RB",
+    "positionRank": 21,
+    "originalRank": 61,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 62,
+    "name": "David Montgomery",
+    "position": "RB",
+    "positionRank": 22,
+    "originalRank": 62,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 63,
+    "name": "Tony Pollard",
+    "position": "RB",
+    "positionRank": 23,
+    "originalRank": 63,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 64,
+    "name": "D'Andre Swift",
+    "position": "RB",
+    "positionRank": 24,
+    "originalRank": 64,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 65,
+    "name": "Chris Olave",
+    "position": "WR",
+    "positionRank": 28,
+    "originalRank": 65,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 66,
+    "name": "Jaylen Warren",
+    "position": "RB",
+    "positionRank": 25,
+    "originalRank": 66,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 67,
+    "name": "Jerry Jeudy",
+    "position": "WR",
+    "positionRank": 29,
+    "originalRank": 67,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 68,
+    "name": "Jaylen Waddle",
+    "position": "WR",
+    "positionRank": 30,
+    "originalRank": 68,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 69,
+    "name": "Calvin Ridley",
+    "position": "WR",
+    "positionRank": 31,
+    "originalRank": 69,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 70,
+    "name": "Tetairoa McMillan",
+    "position": "WR",
+    "positionRank": 32,
+    "originalRank": 70,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 71,
+    "name": "Rashee Rice",
+    "position": "WR",
+    "positionRank": 33,
+    "originalRank": 71,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 72,
+    "name": "Jordan Addison",
+    "position": "WR",
+    "positionRank": 34,
+    "originalRank": 72,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 73,
+    "name": "TreVeyon Henderson",
+    "position": "RB",
+    "positionRank": 26,
+    "originalRank": 73,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 74,
+    "name": "Joe Mixon",
+    "position": "RB",
+    "positionRank": 27,
+    "originalRank": 74,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 75,
+    "name": "Isiah Pacheco",
+    "position": "RB",
+    "positionRank": 28,
+    "originalRank": 75,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 76,
+    "name": "Travis Etienne",
+    "position": "RB",
+    "positionRank": 29,
+    "originalRank": 76,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 77,
+    "name": "J.K. Dobbins",
+    "position": "RB",
+    "positionRank": 30,
+    "originalRank": 77,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 78,
+    "name": "Jauan Jennings",
+    "position": "WR",
+    "positionRank": 35,
+    "originalRank": 78,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 79,
+    "name": "Rome Odunze",
+    "position": "WR",
+    "positionRank": 36,
+    "originalRank": 79,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 80,
+    "name": "Rachaad White",
+    "position": "RB",
+    "positionRank": 31,
+    "originalRank": 80,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 81,
+    "name": "Deebo Samuel",
+    "position": "WR",
+    "positionRank": 37,
+    "originalRank": 81,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 82,
+    "name": "Jakobi Meyers",
+    "position": "WR",
+    "positionRank": 38,
+    "originalRank": 82,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 83,
+    "name": "Travis Hunter",
+    "position": "WR",
+    "positionRank": 39,
+    "originalRank": 83,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 84,
+    "name": "Chris Godwin",
+    "position": "WR",
+    "positionRank": 40,
+    "originalRank": 84,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 85,
+    "name": "Xavier Worthy",
+    "position": "WR",
+    "positionRank": 41,
+    "originalRank": 85,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 86,
+    "name": "Stefon Diggs",
+    "position": "WR",
+    "positionRank": 42,
+    "originalRank": 86,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 87,
+    "name": "Emeka Egbuka",
+    "position": "WR",
+    "positionRank": 43,
+    "originalRank": 87,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 88,
+    "name": "Jayden Reed",
+    "position": "WR",
+    "positionRank": 44,
+    "originalRank": 88,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 89,
+    "name": "Cooper Kupp",
+    "position": "WR",
+    "positionRank": 45,
+    "originalRank": 89,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 90,
+    "name": "Austin Ekeler",
+    "position": "RB",
+    "positionRank": 32,
+    "originalRank": 90,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 91,
+    "name": "Tank Bigsby",
+    "position": "RB",
+    "positionRank": 33,
+    "originalRank": 91,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 92,
+    "name": "Kaleb Johnson",
+    "position": "RB",
+    "positionRank": 34,
+    "originalRank": 92,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 93,
+    "name": "Brian Robinson",
+    "position": "RB",
+    "positionRank": 35,
+    "originalRank": 93,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 94,
+    "name": "R.J. Harvey",
+    "position": "RB",
+    "positionRank": 36,
+    "originalRank": 94,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 95,
+    "name": "Jerome Ford",
+    "position": "RB",
+    "positionRank": 37,
+    "originalRank": 95,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 96,
+    "name": "Michael Pittman",
+    "position": "WR",
+    "positionRank": 46,
+    "originalRank": 96,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 97,
+    "name": "Khalil Shakir",
+    "position": "WR",
+    "positionRank": 47,
+    "originalRank": 97,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 98,
+    "name": "Zach Charbonnet",
+    "position": "RB",
+    "positionRank": 38,
+    "originalRank": 98,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 99,
+    "name": "Keenan Allen",
+    "position": "WR",
+    "positionRank": 48,
+    "originalRank": 99,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 100,
+    "name": "Josh Downs",
+    "position": "WR",
+    "positionRank": 49,
+    "originalRank": 100,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 101,
+    "name": "Najee Harris",
+    "position": "RB",
+    "positionRank": 39,
+    "originalRank": 101,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 102,
+    "name": "Justin Herbert",
+    "position": "QB",
+    "positionRank": 7,
+    "originalRank": 102,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 103,
+    "name": "Jared Goff",
+    "position": "QB",
+    "positionRank": 8,
+    "originalRank": 103,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 104,
+    "name": "Rhamondre Stevenson",
+    "position": "RB",
+    "positionRank": 40,
+    "originalRank": 104,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 105,
+    "name": "Jordan Mason",
+    "position": "RB",
+    "positionRank": 41,
+    "originalRank": 105,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 106,
+    "name": "Brandon Aiyuk",
+    "position": "WR",
+    "positionRank": 50,
+    "originalRank": 106,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 107,
+    "name": "Javonte Williams",
+    "position": "RB",
+    "positionRank": 42,
+    "originalRank": 107,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 108,
+    "name": "Isaac Guerendo",
+    "position": "RB",
+    "positionRank": 43,
+    "originalRank": 108,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 109,
+    "name": "Jaylen Wright",
+    "position": "RB",
+    "positionRank": 44,
+    "originalRank": 109,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 110,
+    "name": "Ray Davis",
+    "position": "RB",
+    "positionRank": 45,
+    "originalRank": 110,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 111,
+    "name": "Colston Loveland",
+    "position": "TE",
+    "positionRank": 8,
+    "originalRank": 111,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 112,
+    "name": "Tyler Warren",
+    "position": "TE",
+    "positionRank": 9,
+    "originalRank": 112,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 113,
+    "name": "Dalton Kincaid",
+    "position": "TE",
+    "positionRank": 10,
+    "originalRank": 113,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 114,
+    "name": "Tucker Kraft",
+    "position": "TE",
+    "positionRank": 11,
+    "originalRank": 114,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 115,
+    "name": "Matthew Golden",
+    "position": "WR",
+    "positionRank": 51,
+    "originalRank": 115,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 116,
+    "name": "Luther Burden",
+    "position": "WR",
+    "positionRank": 52,
+    "originalRank": 116,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 117,
+    "name": "Jayden Higgins",
+    "position": "WR",
+    "positionRank": 53,
+    "originalRank": 117,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 118,
+    "name": "C.J. Stroud",
+    "position": "QB",
+    "positionRank": 9,
+    "originalRank": 118,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 119,
+    "name": "Brock Purdy",
+    "position": "QB",
+    "positionRank": 10,
+    "originalRank": 119,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 120,
+    "name": "Jordan Love",
+    "position": "QB",
+    "positionRank": 11,
+    "originalRank": 120,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 121,
+    "name": "Baker Mayfield",
+    "position": "QB",
+    "positionRank": 12,
+    "originalRank": 121,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 122,
+    "name": "Tyler Allgeier",
+    "position": "RB",
+    "positionRank": 46,
+    "originalRank": 122,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 123,
+    "name": "Cam Skattebo",
+    "position": "RB",
+    "positionRank": 47,
+    "originalRank": 123,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 124,
+    "name": "Blake Corum",
+    "position": "RB",
+    "positionRank": 48,
+    "originalRank": 124,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 125,
+    "name": "Rico Dowdle",
+    "position": "RB",
+    "positionRank": 49,
+    "originalRank": 125,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 126,
+    "name": "Christian Kirk",
+    "position": "WR",
+    "positionRank": 54,
+    "originalRank": 126,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 127,
+    "name": "Keon Coleman",
+    "position": "WR",
+    "positionRank": 55,
+    "originalRank": 127,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 128,
+    "name": "Darnell Mooney",
+    "position": "WR",
+    "positionRank": 56,
+    "originalRank": 128,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 129,
+    "name": "Demario Douglas",
+    "position": "WR",
+    "positionRank": 57,
+    "originalRank": 129,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 130,
+    "name": "Adam Thielen",
+    "position": "WR",
+    "positionRank": 58,
+    "originalRank": 130,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 131,
+    "name": "Romeo Doubs",
+    "position": "WR",
+    "positionRank": 59,
+    "originalRank": 131,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 132,
+    "name": "Evan Engram",
+    "position": "TE",
+    "positionRank": 12,
+    "originalRank": 132,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 133,
+    "name": "Dallas Goedert",
+    "position": "TE",
+    "positionRank": 13,
+    "originalRank": 133,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 134,
+    "name": "David Njoku",
+    "position": "TE",
+    "positionRank": 14,
+    "originalRank": 134,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 135,
+    "name": "Jonnu Smith",
+    "position": "TE",
+    "positionRank": 15,
+    "originalRank": 135,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 136,
+    "name": "Trey Benson",
+    "position": "RB",
+    "positionRank": 50,
+    "originalRank": 136,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 137,
+    "name": "Dylan Sampson",
+    "position": "RB",
+    "positionRank": 51,
+    "originalRank": 137,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 138,
+    "name": "Tyjae Spears",
+    "position": "RB",
+    "positionRank": 52,
+    "originalRank": 138,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 139,
+    "name": "Keaton Mitchell",
+    "position": "RB",
+    "positionRank": 53,
+    "originalRank": 139,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 140,
+    "name": "Braelon Allen",
+    "position": "RB",
+    "positionRank": 54,
+    "originalRank": 140,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 141,
+    "name": "Rashid Shaheed",
+    "position": "WR",
+    "positionRank": 60,
+    "originalRank": 141,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 142,
+    "name": "Cedric Tillman",
+    "position": "WR",
+    "positionRank": 61,
+    "originalRank": 142,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 143,
+    "name": "Wan'Dale Robinson",
+    "position": "WR",
+    "positionRank": 62,
+    "originalRank": 143,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 144,
+    "name": "Kyler Murray",
+    "position": "QB",
+    "positionRank": 13,
+    "originalRank": 144,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 145,
+    "name": "Drake Maye",
+    "position": "QB",
+    "positionRank": 14,
+    "originalRank": 145,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 146,
+    "name": "Caleb Williams",
+    "position": "QB",
+    "positionRank": 15,
+    "originalRank": 146,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 147,
+    "name": "Jaylin Noel",
+    "position": "WR",
+    "positionRank": 63,
+    "originalRank": 147,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 148,
+    "name": "Xavier Legette",
+    "position": "WR",
+    "positionRank": 64,
+    "originalRank": 148,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 149,
+    "name": "Rashod Bateman",
+    "position": "WR",
+    "positionRank": 65,
+    "originalRank": 149,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 150,
+    "name": "Dontayvion Wicks",
+    "position": "WR",
+    "positionRank": 66,
+    "originalRank": 150,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 151,
+    "name": "Alec Pierce",
+    "position": "WR",
+    "positionRank": 67,
+    "originalRank": 151,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 152,
+    "name": "Kendre Miller",
+    "position": "RB",
+    "positionRank": 55,
+    "originalRank": 152,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 153,
+    "name": "Woody Marks",
+    "position": "RB",
+    "positionRank": 56,
+    "originalRank": 153,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 154,
+    "name": "Elijah Mitchell",
+    "position": "RB",
+    "positionRank": 57,
+    "originalRank": 154,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 155,
+    "name": "Jordan James",
+    "position": "RB",
+    "positionRank": 58,
+    "originalRank": 155,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 156,
+    "name": "Quinshon Judkins",
+    "position": "RB",
+    "positionRank": 59,
+    "originalRank": 156,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 157,
+    "name": "Trevor Etienne",
+    "position": "RB",
+    "positionRank": 60,
+    "originalRank": 157,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 158,
+    "name": "Will Shipley",
+    "position": "RB",
+    "positionRank": 61,
+    "originalRank": 158,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 159,
+    "name": "Jaydon Blue",
+    "position": "RB",
+    "positionRank": 62,
+    "originalRank": 159,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 160,
+    "name": "Tahj Brooks",
+    "position": "RB",
+    "positionRank": 63,
+    "originalRank": 160,
+    "previousRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  }
+]
+
+=== src/data/players_8_4_2025_enriched_full.json ===
+[
+  {
+    "rank": 1,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1,
+    "bye": 9,
+    "team": "PHI",
+    "originalRank": 1,
+    "previousRank": 1,
+    "rankChange": 0
+  },
+  {
+    "rank": 2,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2,
+    "bye": 5,
+    "team": "ATL",
+    "originalRank": 2,
+    "previousRank": 2,
+    "rankChange": 0
+  },
+  {
+    "rank": 3,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3,
+    "bye": 8,
+    "team": "DET",
+    "originalRank": 3,
+    "previousRank": 3,
+    "rankChange": 0
+  },
+  {
+    "rank": 4,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1,
+    "bye": 10,
+    "team": "CIN",
+    "originalRank": 4,
+    "previousRank": 4,
+    "rankChange": 0
+  },
+  {
+    "rank": 5,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2,
+    "bye": 6,
+    "team": "MIN",
+    "originalRank": 5,
+    "previousRank": 5,
+    "rankChange": 0
+  },
+  {
+    "rank": 6,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3,
+    "bye": 10,
+    "team": "DAL",
+    "originalRank": 6,
+    "previousRank": 6,
+    "rankChange": 0
+  },
+  {
+    "rank": 7,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4,
+    "bye": 7,
+    "team": "BAL",
+    "originalRank": 7,
+    "previousRank": 7,
+    "rankChange": 0
+  },
+  {
+    "rank": 8,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5,
+    "bye": 14,
+    "team": "SF",
+    "originalRank": 8,
+    "previousRank": 8,
+    "rankChange": 0
+  },
+  {
+    "rank": 9,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4,
+    "bye": 8,
+    "team": "LAR",
+    "originalRank": 9,
+    "previousRank": 9,
+    "rankChange": 0
+  },
+  {
+    "rank": 10,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5,
+    "bye": 6,
+    "team": "HOU",
+    "originalRank": 10,
+    "previousRank": 10,
+    "rankChange": 0
+  },
+  {
+    "rank": 11,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6,
+    "bye": 8,
+    "team": "DET",
+    "originalRank": 11,
+    "previousRank": 11,
+    "rankChange": 0
+  },
+  {
+    "rank": 12,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7,
+    "bye": 14,
+    "team": "NYG",
+    "originalRank": 12,
+    "previousRank": 12,
+    "rankChange": 0
+  },
+  {
+    "rank": 13,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6,
+    "bye": 5,
+    "team": "GB",
+    "originalRank": 13,
+    "previousRank": 13,
+    "rankChange": 0
+  },
+  {
+    "rank": 14,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7,
+    "bye": 11,
+    "team": "IND",
+    "originalRank": 14,
+    "previousRank": 14,
+    "rankChange": 0
+  },
+  {
+    "rank": 15,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8,
+    "bye": 9,
+    "team": "PHI",
+    "originalRank": 15,
+    "previousRank": 15,
+    "rankChange": 0
+  },
+  {
+    "rank": 16,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9,
+    "previousRank": 16,
+    "rankChange": 0,
+    "originalRank": 16,
+    "team": "JAX",
+    "bye": 8
+  },
+  {
+    "rank": 17,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8,
+    "bye": 9,
+    "team": "NYJ",
+    "originalRank": 17,
+    "previousRank": 17,
+    "rankChange": 0
+  },
+  {
+    "rank": 18,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9,
+    "bye": 8,
+    "team": "LV",
+    "originalRank": 18,
+    "previousRank": 18,
+    "rankChange": 0
+  },
+  {
+    "rank": 19,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10,
+    "bye": 8,
+    "team": "SEA",
+    "originalRank": 19,
+    "previousRank": 19,
+    "rankChange": 0
+  },
+  {
+    "rank": 20,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10,
+    "bye": 8,
+    "team": "LAR",
+    "originalRank": 20,
+    "previousRank": 20,
+    "rankChange": 0
+  },
+  {
+    "rank": 21,
+    "name": "Chase Brown",
+    "position": "RB",
+    "positionRank": 11,
+    "bye": 10,
+    "team": "CIN",
+    "originalRank": 21,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 22,
+    "name": "De'Von Achane",
+    "position": "RB",
+    "positionRank": 12,
+    "bye": 12,
+    "team": "MIA",
+    "originalRank": 22,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 23,
+    "name": "Alvin Kamara",
+    "position": "RB",
+    "positionRank": 13,
+    "bye": 11,
+    "team": "NO",
+    "originalRank": 23,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 24,
+    "name": "Tyreek Hill",
+    "position": "WR",
+    "positionRank": 11,
+    "bye": 12,
+    "team": "MIA",
+    "originalRank": 24,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 25,
+    "name": "Drake London",
+    "position": "WR",
+    "positionRank": 12,
+    "bye": 5,
+    "team": "ATL",
+    "originalRank": 25,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 26,
+    "name": "Ladd McConkey",
+    "position": "WR",
+    "positionRank": 13,
+    "bye": 12,
+    "team": "LAC",
+    "originalRank": 26,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 27,
+    "name": "James Cook",
+    "position": "RB",
+    "positionRank": 14,
+    "bye": 7,
+    "team": "BUF",
+    "originalRank": 27,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 28,
+    "name": "Brock Bowers",
+    "position": "TE",
+    "positionRank": 1,
+    "bye": 8,
+    "team": "LV",
+    "originalRank": 28,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 29,
+    "name": "Trey McBride",
+    "position": "TE",
+    "positionRank": 2,
+    "bye": 8,
+    "team": "ARI",
+    "originalRank": 29,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 30,
+    "name": "Chuba Hubbard",
+    "position": "RB",
+    "positionRank": 15,
+    "bye": 14,
+    "team": "CAR",
+    "originalRank": 30,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 31,
+    "name": "Bucky Irving",
+    "position": "RB",
+    "positionRank": 16,
+    "bye": 9,
+    "team": "TB",
+    "originalRank": 31,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 32,
+    "name": "Kenneth Walker",
+    "position": "RB",
+    "positionRank": 17,
+    "originalRank": 32,
+    "team": "SEA",
+    "bye": 8,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 33,
+    "name": "Joe Mixon",
+    "position": "RB",
+    "positionRank": 18,
+    "bye": 6,
+    "team": "HOU",
+    "originalRank": 33,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 34,
+    "name": "Terry McLaurin",
+    "position": "WR",
+    "positionRank": 14,
+    "bye": 12,
+    "team": "WAS",
+    "originalRank": 34,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 35,
+    "name": "D.J. Moore",
+    "position": "WR",
+    "positionRank": 15,
+    "originalRank": 35,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 36,
+    "name": "George Kittle",
+    "position": "TE",
+    "positionRank": 3,
+    "bye": 14,
+    "team": "SF",
+    "originalRank": 36,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 37,
+    "name": "Garrett Wilson",
+    "position": "WR",
+    "positionRank": 16,
+    "bye": 9,
+    "team": "NYJ",
+    "originalRank": 37,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 38,
+    "name": "Lamar Jackson",
+    "position": "QB",
+    "positionRank": 1,
+    "bye": 7,
+    "team": "BAL",
+    "originalRank": 38,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 39,
+    "name": "Josh Allen",
+    "position": "QB",
+    "positionRank": 2,
+    "bye": 7,
+    "team": "BUF",
+    "originalRank": 39,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 40,
+    "name": "Tee Higgins",
+    "position": "WR",
+    "positionRank": 17,
+    "bye": 10,
+    "team": "CIN",
+    "originalRank": 40,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 41,
+    "name": "Davante Adams",
+    "position": "WR",
+    "positionRank": 18,
+    "bye": 8,
+    "team": "LAR",
+    "originalRank": 41,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 42,
+    "name": "Zay Flowers",
+    "position": "WR",
+    "positionRank": 19,
+    "bye": 7,
+    "team": "BAL",
+    "originalRank": 42,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 43,
+    "name": "Marvin Harrison",
+    "position": "WR",
+    "positionRank": 20,
+    "originalRank": 43,
+    "team": "ARI",
+    "bye": 8,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 44,
+    "name": "Rashee Rice",
+    "position": "WR",
+    "positionRank": 21,
+    "bye": 10,
+    "team": "KC",
+    "originalRank": 44,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 45,
+    "name": "DK Metcalf",
+    "position": "WR",
+    "positionRank": 22,
+    "bye": 5,
+    "team": "PIT",
+    "originalRank": 45,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 46,
+    "name": "James Conner",
+    "position": "RB",
+    "positionRank": 19,
+    "bye": 8,
+    "team": "ARI",
+    "originalRank": 46,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 47,
+    "name": "DeVonta Smith",
+    "position": "WR",
+    "positionRank": 23,
+    "bye": 9,
+    "team": "PHI",
+    "originalRank": 47,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 48,
+    "name": "Joe Burrow",
+    "position": "QB",
+    "positionRank": 3,
+    "bye": 10,
+    "team": "CIN",
+    "originalRank": 48,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 49,
+    "name": "Jayden Daniels",
+    "position": "QB",
+    "positionRank": 4,
+    "bye": 12,
+    "team": "WAS",
+    "originalRank": 49,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 50,
+    "name": "Omarion Hampton",
+    "position": "RB",
+    "positionRank": 20,
+    "bye": 12,
+    "team": "LAC",
+    "originalRank": 50,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 51,
+    "name": "Mark Andrews",
+    "position": "TE",
+    "positionRank": 4,
+    "bye": 7,
+    "team": "BAL",
+    "originalRank": 51,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 52,
+    "name": "Sam LaPorta",
+    "position": "TE",
+    "positionRank": 5,
+    "bye": 8,
+    "team": "DET",
+    "originalRank": 52,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 53,
+    "name": "T.J. Hockenson",
+    "position": "TE",
+    "positionRank": 6,
+    "bye": 6,
+    "team": "MIN",
+    "originalRank": 53,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 54,
+    "name": "Travis Kelce",
+    "position": "TE",
+    "positionRank": 7,
+    "bye": 10,
+    "team": "KC",
+    "originalRank": 54,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 55,
+    "name": "Courtland Sutton",
+    "position": "WR",
+    "positionRank": 24,
+    "bye": 12,
+    "team": "DEN",
+    "originalRank": 55,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 56,
+    "name": "Mike Evans",
+    "position": "WR",
+    "positionRank": 25,
+    "bye": 9,
+    "team": "TB",
+    "originalRank": 56,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 57,
+    "name": "Jordan Addison",
+    "position": "WR",
+    "positionRank": 26,
+    "bye": 6,
+    "team": "MIN",
+    "originalRank": 57,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 58,
+    "name": "Jameson Williams",
+    "position": "WR",
+    "positionRank": 27,
+    "bye": 8,
+    "team": "DET",
+    "originalRank": 58,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 59,
+    "name": "Ricky Pearsall",
+    "position": "WR",
+    "positionRank": 28,
+    "bye": 14,
+    "team": "SF",
+    "originalRank": 59,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 60,
+    "name": "George Pickens",
+    "position": "WR",
+    "positionRank": 29,
+    "bye": 10,
+    "team": "DAL",
+    "originalRank": 60,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 61,
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "positionRank": 5,
+    "bye": 10,
+    "team": "KC",
+    "originalRank": 61,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 62,
+    "name": "Jalen Hurts",
+    "position": "QB",
+    "positionRank": 6,
+    "bye": 9,
+    "team": "PHI",
+    "originalRank": 62,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 63,
+    "name": "Tyrone Tracy",
+    "position": "RB",
+    "positionRank": 21,
+    "originalRank": 63,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 64,
+    "name": "Aaron Jones",
+    "position": "RB",
+    "positionRank": 22,
+    "bye": 6,
+    "team": "MIN",
+    "originalRank": 64,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 65,
+    "name": "David Montgomery",
+    "position": "RB",
+    "positionRank": 23,
+    "bye": 8,
+    "team": "DET",
+    "originalRank": 65,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 66,
+    "name": "Tony Pollard",
+    "position": "RB",
+    "positionRank": 24,
+    "bye": 10,
+    "team": "TEN",
+    "originalRank": 66,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 67,
+    "name": "D'Andre Swift",
+    "position": "RB",
+    "positionRank": 25,
+    "bye": 5,
+    "team": "CHI",
+    "originalRank": 67,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 68,
+    "name": "Chris Olave",
+    "position": "WR",
+    "positionRank": 30,
+    "bye": 11,
+    "team": "NO",
+    "originalRank": 68,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 69,
+    "name": "Jaylen Warren",
+    "position": "RB",
+    "positionRank": 26,
+    "bye": 5,
+    "team": "PIT",
+    "originalRank": 69,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 70,
+    "name": "Jerry Jeudy",
+    "position": "WR",
+    "positionRank": 31,
+    "bye": 9,
+    "team": "CLE",
+    "originalRank": 70,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 71,
+    "name": "Jaylen Waddle",
+    "position": "WR",
+    "positionRank": 32,
+    "bye": 12,
+    "team": "MIA",
+    "originalRank": 71,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 72,
+    "name": "Calvin Ridley",
+    "position": "WR",
+    "positionRank": 33,
+    "bye": 10,
+    "team": "TEN",
+    "originalRank": 72,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 73,
+    "name": "Chris Godwin",
+    "position": "WR",
+    "positionRank": 34,
+    "bye": 9,
+    "team": "TB",
+    "originalRank": 73,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 74,
+    "name": "Isiah Pacheco",
+    "position": "RB",
+    "positionRank": 27,
+    "bye": 10,
+    "team": "KC",
+    "originalRank": 74,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 75,
+    "name": "Travis Etienne",
+    "position": "RB",
+    "positionRank": 28,
+    "originalRank": 75,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 76,
+    "name": "J.K. Dobbins",
+    "position": "RB",
+    "positionRank": 29,
+    "bye": 12,
+    "team": "DEN",
+    "originalRank": 76,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 77,
+    "name": "Jauan Jennings",
+    "position": "WR",
+    "positionRank": 35,
+    "bye": 14,
+    "team": "SF",
+    "originalRank": 77,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 78,
+    "name": "Rome Odunze",
+    "position": "WR",
+    "positionRank": 36,
+    "bye": 5,
+    "team": "CHI",
+    "originalRank": 78,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 79,
+    "name": "Rachaad White",
+    "position": "RB",
+    "positionRank": 30,
+    "originalRank": 79,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 80,
+    "name": "Deebo Samuel",
+    "position": "WR",
+    "positionRank": 37,
+    "originalRank": 80,
+    "team": "WAS",
+    "bye": 12,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 81,
+    "name": "Jakobi Meyers",
+    "position": "WR",
+    "positionRank": 38,
+    "bye": 8,
+    "team": "LV",
+    "originalRank": 81,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 82,
+    "name": "Jayden Reed",
+    "position": "WR",
+    "positionRank": 39,
+    "bye": 5,
+    "team": "GB",
+    "originalRank": 82,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 83,
+    "name": "Travis Hunter",
+    "position": "WR",
+    "positionRank": 40,
+    "bye": 8,
+    "team": "JAX",
+    "originalRank": 83,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 84,
+    "name": "Xavier Worthy",
+    "position": "WR",
+    "positionRank": 41,
+    "bye": 10,
+    "team": "KC",
+    "originalRank": 84,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 85,
+    "name": "Stefon Diggs",
+    "position": "WR",
+    "positionRank": 42,
+    "bye": 14,
+    "team": "NE",
+    "originalRank": 85,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 86,
+    "name": "Cooper Kupp",
+    "position": "WR",
+    "positionRank": 43,
+    "bye": 8,
+    "team": "SEA",
+    "originalRank": 86,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 87,
+    "name": "Jonnu Smith",
+    "position": "TE",
+    "positionRank": 8,
+    "originalRank": 87,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 88,
+    "name": "Austin Ekeler",
+    "position": "RB",
+    "positionRank": 31,
+    "bye": 12,
+    "team": "WAS",
+    "originalRank": 88,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 89,
+    "name": "Tank Bigsby",
+    "position": "RB",
+    "positionRank": 32,
+    "originalRank": 89,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 90,
+    "name": "Kaleb Johnson",
+    "position": "RB",
+    "positionRank": 33,
+    "bye": 5,
+    "team": "PIT",
+    "originalRank": 90,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 91,
+    "name": "Brian Robinson",
+    "position": "RB",
+    "positionRank": 34,
+    "originalRank": 91,
+    "team": "WAS",
+    "bye": 12,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 92,
+    "name": "TreVeyon Henderson",
+    "position": "RB",
+    "positionRank": 35,
+    "bye": 14,
+    "team": "NE",
+    "originalRank": 92,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 93,
+    "name": "R.J. Harvey",
+    "position": "RB",
+    "positionRank": 36,
+    "originalRank": 93,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 94,
+    "name": "Jerome Ford",
+    "position": "RB",
+    "positionRank": 37,
+    "originalRank": 94,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 95,
+    "name": "Michael Pittman",
+    "position": "WR",
+    "positionRank": 44,
+    "originalRank": 95,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 96,
+    "name": "Khalil Shakir",
+    "position": "WR",
+    "positionRank": 45,
+    "bye": 7,
+    "team": "BUF",
+    "originalRank": 96,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 97,
+    "name": "Zach Charbonnet",
+    "position": "RB",
+    "positionRank": 38,
+    "originalRank": 97,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 98,
+    "name": "Tetairoa McMillan",
+    "position": "WR",
+    "positionRank": 46,
+    "bye": 14,
+    "team": "CAR",
+    "originalRank": 98,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 99,
+    "name": "Josh Downs",
+    "position": "WR",
+    "positionRank": 47,
+    "bye": 11,
+    "team": "IND",
+    "originalRank": 99,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 100,
+    "name": "Najee Harris",
+    "position": "RB",
+    "positionRank": 39,
+    "originalRank": 100,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 101,
+    "name": "Justin Herbert",
+    "position": "QB",
+    "positionRank": 7,
+    "bye": 12,
+    "team": "LAC",
+    "originalRank": 101,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 102,
+    "name": "Jared Goff",
+    "position": "QB",
+    "positionRank": 8,
+    "bye": 8,
+    "team": "DET",
+    "originalRank": 102,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 103,
+    "name": "Rhamondre Stevenson",
+    "position": "RB",
+    "positionRank": 40,
+    "originalRank": 103,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 104,
+    "name": "Jordan Mason",
+    "position": "RB",
+    "positionRank": 41,
+    "originalRank": 104,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 105,
+    "name": "Brandon Aiyuk",
+    "position": "WR",
+    "positionRank": 48,
+    "originalRank": 105,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 106,
+    "name": "Tyjae Spears",
+    "position": "RB",
+    "positionRank": 42,
+    "originalRank": 106,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 107,
+    "name": "Javonte Williams",
+    "position": "RB",
+    "positionRank": 43,
+    "originalRank": 107,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 108,
+    "name": "Jaylen Wright",
+    "position": "RB",
+    "positionRank": 44,
+    "originalRank": 108,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 109,
+    "name": "Ray Davis",
+    "position": "RB",
+    "positionRank": 45,
+    "originalRank": 109,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 110,
+    "name": "Colston Loveland",
+    "position": "TE",
+    "positionRank": 9,
+    "originalRank": 110,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 111,
+    "name": "Tyler Warren",
+    "position": "TE",
+    "positionRank": 10,
+    "originalRank": 111,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 112,
+    "name": "Dalton Kincaid",
+    "position": "TE",
+    "positionRank": 11,
+    "originalRank": 112,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 113,
+    "name": "Tucker Kraft",
+    "position": "TE",
+    "positionRank": 12,
+    "bye": 5,
+    "team": "GB",
+    "originalRank": 113,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 114,
+    "name": "Matthew Golden",
+    "position": "WR",
+    "positionRank": 49,
+    "bye": 5,
+    "team": "GB",
+    "originalRank": 114,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 115,
+    "name": "Luther Burden",
+    "position": "WR",
+    "positionRank": 50,
+    "originalRank": 115,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 116,
+    "name": "Emeka Egbuka",
+    "position": "WR",
+    "positionRank": 51,
+    "bye": 9,
+    "team": "TB",
+    "originalRank": 116,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 117,
+    "name": "Jayden Higgins",
+    "position": "WR",
+    "positionRank": 52,
+    "originalRank": 117,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 118,
+    "name": "C.J. Stroud",
+    "position": "QB",
+    "positionRank": 9,
+    "bye": 6,
+    "team": "HOU",
+    "originalRank": 118,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 119,
+    "name": "Brock Purdy",
+    "position": "QB",
+    "positionRank": 10,
+    "bye": 14,
+    "team": "SF",
+    "originalRank": 119,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 120,
+    "name": "Jordan Love",
+    "position": "QB",
+    "positionRank": 11,
+    "bye": 5,
+    "team": "GB",
+    "originalRank": 120,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 121,
+    "name": "Baker Mayfield",
+    "position": "QB",
+    "positionRank": 12,
+    "bye": 9,
+    "team": "TB",
+    "originalRank": 121,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 122,
+    "name": "Quinshon Judkins",
+    "position": "RB",
+    "positionRank": 46,
+    "originalRank": 122,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 123,
+    "name": "Tyler Allgeier",
+    "position": "RB",
+    "positionRank": 47,
+    "originalRank": 123,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 124,
+    "name": "Cam Skattebo",
+    "position": "RB",
+    "positionRank": 48,
+    "originalRank": 124,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 125,
+    "name": "Blake Corum",
+    "position": "RB",
+    "positionRank": 49,
+    "originalRank": 125,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 126,
+    "name": "Rico Dowdle",
+    "position": "RB",
+    "positionRank": 50,
+    "originalRank": 126,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 127,
+    "name": "Christian Kirk",
+    "position": "WR",
+    "positionRank": 53,
+    "bye": 6,
+    "team": "HOU",
+    "originalRank": 127,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 128,
+    "name": "Keon Coleman",
+    "position": "WR",
+    "positionRank": 54,
+    "bye": 7,
+    "team": "BUF",
+    "originalRank": 128,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 129,
+    "name": "Darnell Mooney",
+    "position": "WR",
+    "positionRank": 55,
+    "bye": 5,
+    "team": "ATL",
+    "originalRank": 129,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 130,
+    "name": "Adam Thielen",
+    "position": "WR",
+    "positionRank": 56,
+    "bye": 14,
+    "team": "CAR",
+    "originalRank": 130,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 131,
+    "name": "Romeo Doubs",
+    "position": "WR",
+    "positionRank": 57,
+    "originalRank": 131,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 132,
+    "name": "Evan Engram",
+    "position": "TE",
+    "positionRank": 13,
+    "bye": 12,
+    "team": "DEN",
+    "originalRank": 132,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 133,
+    "name": "Dallas Goedert",
+    "position": "TE",
+    "positionRank": 14,
+    "originalRank": 133,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 134,
+    "name": "David Njoku",
+    "position": "TE",
+    "positionRank": 15,
+    "bye": 9,
+    "team": "CLE",
+    "originalRank": 134,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 135,
+    "name": "Trey Benson",
+    "position": "RB",
+    "positionRank": 51,
+    "originalRank": 135,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 136,
+    "name": "Isaac Guerendo",
+    "position": "RB",
+    "positionRank": 52,
+    "originalRank": 136,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 137,
+    "name": "Dylan Sampson",
+    "position": "RB",
+    "positionRank": 53,
+    "originalRank": 137,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 138,
+    "name": "Keaton Mitchell",
+    "position": "RB",
+    "positionRank": 54,
+    "originalRank": 138,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 139,
+    "name": "Braelon Allen",
+    "position": "RB",
+    "positionRank": 55,
+    "originalRank": 139,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 140,
+    "name": "Rashid Shaheed",
+    "position": "WR",
+    "positionRank": 58,
+    "bye": 11,
+    "team": "NO",
+    "originalRank": 140,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 141,
+    "name": "Cedric Tillman",
+    "position": "WR",
+    "positionRank": 59,
+    "bye": 9,
+    "team": "CLE",
+    "originalRank": 141,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 142,
+    "name": "Jalen McMillan",
+    "position": "WR",
+    "positionRank": 60,
+    "originalRank": 142,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 143,
+    "name": "Wan'Dale Robinson",
+    "position": "WR",
+    "positionRank": 61,
+    "bye": 14,
+    "team": "NYG",
+    "originalRank": 143,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 144,
+    "name": "Kyler Murray",
+    "position": "QB",
+    "positionRank": 13,
+    "bye": 8,
+    "team": "ARI",
+    "originalRank": 144,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 145,
+    "name": "Drake Maye",
+    "position": "QB",
+    "positionRank": 14,
+    "bye": 14,
+    "team": "NE",
+    "originalRank": 145,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 146,
+    "name": "Caleb Williams",
+    "position": "QB",
+    "positionRank": 15,
+    "bye": 5,
+    "team": "CHI",
+    "originalRank": 146,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 147,
+    "name": "Jaylin Noel",
+    "position": "WR",
+    "positionRank": 62,
+    "originalRank": 147,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 148,
+    "name": "Xavier Legette",
+    "position": "WR",
+    "positionRank": 63,
+    "originalRank": 148,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 149,
+    "name": "Rashod Bateman",
+    "position": "WR",
+    "positionRank": 64,
+    "originalRank": 149,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 150,
+    "name": "Dontayvion Wicks",
+    "position": "WR",
+    "positionRank": 65,
+    "originalRank": 150,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 151,
+    "name": "Alec Pierce",
+    "position": "WR",
+    "positionRank": 66,
+    "originalRank": 151,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 152,
+    "name": "Kendre Miller",
+    "position": "RB",
+    "positionRank": 56,
+    "originalRank": 152,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 153,
+    "name": "Woody Marks",
+    "position": "RB",
+    "positionRank": 57,
+    "originalRank": 153,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 154,
+    "name": "Elijah Mitchell",
+    "position": "RB",
+    "positionRank": 58,
+    "originalRank": 154,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 155,
+    "name": "MarShawn Lloyd",
+    "position": "RB",
+    "positionRank": 59,
+    "originalRank": 155,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 156,
+    "name": "Trevor Etienne",
+    "position": "RB",
+    "positionRank": 60,
+    "originalRank": 156,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 157,
+    "name": "Will Shipley",
+    "position": "RB",
+    "positionRank": 61,
+    "originalRank": 157,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 158,
+    "name": "Jaydon Blue",
+    "position": "RB",
+    "positionRank": 62,
+    "originalRank": 158,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 159,
+    "name": "Tahj Brooks",
+    "position": "RB",
+    "positionRank": 63,
+    "originalRank": 159,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 160,
+    "name": "Nick Chubb",
+    "position": "RB",
+    "positionRank": 64,
+    "originalRank": 160,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 161,
+    "name": "Quentin Johnston",
+    "position": "WR",
+    "positionRank": 67,
+    "originalRank": 161,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 162,
+    "name": "Jack Bech",
+    "position": "WR",
+    "positionRank": 68,
+    "originalRank": 162,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 163,
+    "name": "Tre Harris",
+    "position": "WR",
+    "positionRank": 69,
+    "originalRank": 163,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 164,
+    "name": "Marquise Brown",
+    "position": "WR",
+    "positionRank": 70,
+    "bye": 10,
+    "team": "KC",
+    "originalRank": 164,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 165,
+    "name": "Kyle Williams",
+    "position": "WR",
+    "positionRank": 71,
+    "originalRank": 165,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 166,
+    "name": "Michael Wilson",
+    "position": "WR",
+    "positionRank": 72,
+    "originalRank": 166,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 167,
+    "name": "Cade Otton",
+    "position": "TE",
+    "positionRank": 16,
+    "originalRank": 167,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 168,
+    "name": "Kyle Pitts",
+    "position": "TE",
+    "positionRank": 17,
+    "originalRank": 168,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 169,
+    "name": "Isaiah Likely",
+    "position": "TE",
+    "positionRank": 18,
+    "originalRank": 169,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 170,
+    "name": "Damien Martinez",
+    "position": "RB",
+    "positionRank": 65,
+    "originalRank": 170,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 171,
+    "name": "DJ Giddens",
+    "position": "RB",
+    "positionRank": 66,
+    "originalRank": 171,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 172,
+    "name": "Antonio Gibson",
+    "position": "RB",
+    "positionRank": 67,
+    "originalRank": 172,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 173,
+    "name": "Brashard Smith",
+    "position": "RB",
+    "positionRank": 68,
+    "originalRank": 173,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 174,
+    "name": "Justin Fields",
+    "position": "QB",
+    "positionRank": 16,
+    "bye": 9,
+    "team": "NYJ",
+    "originalRank": 174,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 175,
+    "name": "Dak Prescott",
+    "position": "QB",
+    "positionRank": 17,
+    "bye": 10,
+    "team": "DAL",
+    "originalRank": 175,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 176,
+    "name": "Tua Tagovailoa",
+    "position": "QB",
+    "positionRank": 18,
+    "originalRank": 176,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 177,
+    "name": "J.J. McCarthy",
+    "position": "QB",
+    "positionRank": 19,
+    "bye": 6,
+    "team": "MIN",
+    "originalRank": 177,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 178,
+    "name": "Bo Nix",
+    "position": "QB",
+    "positionRank": 20,
+    "bye": 12,
+    "team": "DEN",
+    "originalRank": 178,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 179,
+    "name": "DeAndre Hopkins",
+    "position": "WR",
+    "positionRank": 73,
+    "originalRank": 179,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 180,
+    "name": "Jalen Coker",
+    "position": "WR",
+    "positionRank": 74,
+    "originalRank": 180,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 181,
+    "name": "Josh Palmer",
+    "position": "WR",
+    "positionRank": 75,
+    "originalRank": 181,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 182,
+    "name": "Marvin Mims",
+    "position": "WR",
+    "positionRank": 76,
+    "originalRank": 182,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 183,
+    "name": "Roschon Johnson",
+    "position": "RB",
+    "positionRank": 69,
+    "originalRank": 183,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 184,
+    "name": "Audric Estim\u00e9",
+    "position": "RB",
+    "positionRank": 70,
+    "originalRank": 184,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 185,
+    "name": "Dameon Pierce",
+    "position": "RB",
+    "positionRank": 71,
+    "originalRank": 185,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 186,
+    "name": "Kimani Vidal",
+    "position": "RB",
+    "positionRank": 72,
+    "originalRank": 186,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 187,
+    "name": "Justice Hill",
+    "position": "RB",
+    "positionRank": 73,
+    "originalRank": 187,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 188,
+    "name": "Kenneth Gainwell",
+    "position": "RB",
+    "positionRank": 74,
+    "originalRank": 188,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 189,
+    "name": "Ty Johnson",
+    "position": "RB",
+    "positionRank": 75,
+    "originalRank": 189,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 190,
+    "name": "Jalen Royals",
+    "position": "WR",
+    "positionRank": 77,
+    "originalRank": 190,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 191,
+    "name": "Demario Douglas",
+    "position": "WR",
+    "positionRank": 78,
+    "originalRank": 191,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 192,
+    "name": "Diontae Johnson",
+    "position": "WR",
+    "positionRank": 79,
+    "originalRank": 192,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 193,
+    "name": "Trevor Lawrence",
+    "position": "QB",
+    "positionRank": 21,
+    "originalRank": 193,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 194,
+    "name": "Matthew Stafford",
+    "position": "QB",
+    "positionRank": 22,
+    "originalRank": 194,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 195,
+    "name": "Michael Penix",
+    "position": "QB",
+    "positionRank": 23,
+    "originalRank": 195,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 196,
+    "name": "Bryce Young",
+    "position": "QB",
+    "positionRank": 24,
+    "originalRank": 196,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 197,
+    "name": "Geno Smith",
+    "position": "QB",
+    "positionRank": 25,
+    "originalRank": 197,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 198,
+    "name": "Sam Darnold",
+    "position": "QB",
+    "positionRank": 26,
+    "originalRank": 198,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 199,
+    "name": "Elic Ayomanor",
+    "position": "WR",
+    "positionRank": 80,
+    "originalRank": 199,
+    "previousRank": null,
+    "rankChange": null
+  },
+  {
+    "rank": 200,
+    "name": "Jordan James",
+    "position": "RB",
+    "positionRank": 76,
+    "originalRank": 200,
+    "previousRank": null,
+    "rankChange": null
+  }
+]
+
+=== src/data/players_with_bye.json ===
+[
+  {
+    "rank": 1,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1,
+    "team": "PHI",
+    "newRank": 1,
+    "change": 0,
+    "bye": 9
+  },
+  {
+    "rank": 2,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2,
+    "team": "ATL",
+    "newRank": 2,
+    "change": 0,
+    "bye": 5
+  },
+  {
+    "rank": 3,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3,
+    "team": "DET",
+    "newRank": 3,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 4,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1,
+    "team": "CIN",
+    "newRank": 4,
+    "change": 0,
+    "bye": 10
+  },
+  {
+    "rank": 5,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2,
+    "team": "MIN",
+    "newRank": 5,
+    "change": 0,
+    "bye": 6
+  },
+  {
+    "rank": 6,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3,
+    "team": "DAL",
+    "newRank": 6,
+    "change": 0,
+    "bye": 10
+  },
+  {
+    "rank": 7,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4,
+    "team": "BAL",
+    "newRank": 7,
+    "change": 0,
+    "bye": 7
+  },
+  {
+    "rank": 8,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5,
+    "team": "SF",
+    "newRank": 8,
+    "change": 0,
+    "bye": 14
+  },
+  {
+    "rank": 9,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4,
+    "team": "LAR",
+    "newRank": 9,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 10,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5,
+    "team": "HOU",
+    "newRank": 10,
+    "change": 0,
+    "bye": 6
+  },
+  {
+    "rank": 11,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6,
+    "team": "DET",
+    "newRank": 11,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 12,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7,
+    "team": "NYG",
+    "newRank": 12,
+    "change": 0,
+    "bye": 14
+  },
+  {
+    "rank": 13,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6,
+    "team": "GB",
+    "newRank": 13,
+    "change": 0,
+    "bye": 5
+  },
+  {
+    "rank": 14,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7,
+    "team": "IND",
+    "newRank": 14,
+    "change": 0,
+    "bye": 11
+  },
+  {
+    "rank": 15,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8,
+    "team": "PHI",
+    "newRank": 15,
+    "change": 0,
+    "bye": 9
+  },
+  {
+    "rank": 16,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9,
+    "team": "JAX",
+    "newRank": 16,
+    "change": 0
+  },
+  {
+    "rank": 17,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8,
+    "team": "NYJ",
+    "newRank": 17,
+    "change": 0,
+    "bye": 9
+  },
+  {
+    "rank": 18,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9,
+    "team": "LV",
+    "newRank": 18,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 19,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10,
+    "team": "SEA",
+    "newRank": 19,
+    "change": 0,
+    "bye": 8
+  },
+  {
+    "rank": 20,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10,
+    "team": "LAR",
+    "newRank": 20,
+    "change": 0,
+    "bye": 8
+  }
+]
+
+=== src/env.d.ts ===
+/// <reference types="vite/client" />
+
+declare module "*.vue" {
+  import type { DefineComponent } from "vue";
+  const component: DefineComponent<{}, {}, any>;
+  export default component;
+}
+
+
+=== .gitignore ===
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+=== package.json ===
+{
+  "name": "my-draft-tool",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "list:project": "node scripts/all-files.js"
+  },
+  "dependencies": {
+    "pinia": "^3.0.3",
+    "vue": "^3.5.17"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "vite": "^7.0.4"
+  }
+}
+
+
+=== postcss.config.cjs ===
+module.exports = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+    autoprefixer: {},
+  },
+};
+
+
+=== tailwind.config.cjs ===
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
+
+
+=== tsconfig.json ===
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@data/*": ["src/data/*"],
+      "@stores/*": ["src/stores/*"],
+      "@styles/*": ["src/styles/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"]
+}
+
+
+=== vite.config.js ===
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import path from "node:path";
+
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+      "@components": path.resolve(__dirname, "src/components"),
+      "@data": path.resolve(__dirname, "src/data"),
+      "@stores": path.resolve(__dirname, "src/stores"),
+      "@styles": path.resolve(__dirname, "src/styles"),
+    },
+  },
+});
+
