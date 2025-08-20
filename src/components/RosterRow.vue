@@ -124,14 +124,14 @@ function onDraftedByOthers() {
   background-color: #f5baf4;
 } /* Pink/Purple */
 .delta-pos {
-  color: #16a34a;
-  font-weight: 600;
-} /* green 600 */
-.delta-neg {
   color: #dc2626;
   font-weight: 600;
-} /* red 600   */
+} /* red for slipping */
+.delta-neg {
+  color: #16a34a;
+  font-weight: 600;
+} /* green for improving */
 .delta-zero {
   color: #94a3b8;
-} /* slate 400 */
+} /* gray dash */
 </style>
