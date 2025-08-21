@@ -174,7 +174,6 @@ function draftToMyTeam(p: Player) {
 function draftedByOthers(p: Player) {
   store.hide(p);
 }
-
 function resetAll() {
   (Object.keys(roster) as SlotId[]).forEach((k) => (roster[k] = null));
   bench.value = [];
@@ -186,19 +185,13 @@ const draftedCount = computed(
 );
 
 /** ---------- DRAFT BOARD list (round headers) ---------- */
-interface Header {
-  type: "header";
-  round: number;
-}
-interface Row {
-  type: "player";
-  data: Player;
-}
+type Header = { type: "header"; round: number };
+type Row = { type: "player"; data: Player };
 type DisplayItem = Header | Row;
 
 const displayList = computed<DisplayItem[]>(() => {
   const list: DisplayItem[] = [];
-  const size = teams.value;
+  const size = Math.max(1, teams.value);
   const ordered = [...store.visible].sort((a, b) => a.rank - b.rank);
   let currentRound = 0;
   for (const p of ordered) {
@@ -217,7 +210,7 @@ const displayList = computed<DisplayItem[]>(() => {
     <section class="bg-slate-900 text-slate-100 rounded-lg p-3 shadow">
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
-          My Team&nbsp;
+          My Team
           <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded">
             {{ draftedCount }} of 15
           </span>
@@ -225,7 +218,7 @@ const displayList = computed<DisplayItem[]>(() => {
 
         <DraftSlotRandomizer
           :min="1"
-          :max="12"
+          :max="teams"
           label="Randomize Draft Slot"
           @selected="(n: number) => console.log('Selected slot:', n)"
         />
@@ -243,11 +236,16 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">QB</span>
-            <template v-if="roster.QB"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="roster.QB">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 roster.QB.name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="roster.QB.team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ roster.QB.team }}
+              </span>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
@@ -262,11 +260,16 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">WR</span>
-            <template v-if="(roster as any)[id]"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="(roster as any)[id]">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 (roster as any)[id].name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="(roster as any)[id].team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ (roster as any)[id].team }}
+              </span>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
@@ -281,11 +284,16 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">RB</span>
-            <template v-if="(roster as any)[id]"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="(roster as any)[id]">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 (roster as any)[id].name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="(roster as any)[id].team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ (roster as any)[id].team }}
+              </span>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
 
@@ -298,11 +306,16 @@ const displayList = computed<DisplayItem[]>(() => {
             ]"
           >
             <span class="text-xs tracking-wide">TE</span>
-            <template v-if="roster.TE"
-              ><span class="text-sm truncate max-w-[12rem]">{{
+            <template v-if="roster.TE">
+              <span class="text-sm truncate max-w-[12rem]">{{
                 roster.TE.name
-              }}</span></template
-            >
+              }}</span>
+              <span
+                v-if="roster.TE.team"
+                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
+              >
+                {{ roster.TE.team }}
+              </span>
             <span v-else class="text-xs text-slate-500">—</span>
           </div>
         </div>
@@ -321,6 +334,11 @@ const displayList = computed<DisplayItem[]>(() => {
               ]"
             >
               <span class="truncate text-sm">{{ p.name }}</span>
+              <span
+                v-if="p.team"
+                class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10 uppercase"
+                >{{ p.team }}</span
+              >
               <span
                 class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10"
                 >{{ p.position }}</span
@@ -342,24 +360,36 @@ const displayList = computed<DisplayItem[]>(() => {
         class="min-w-full table-fixed border-collapse border border-slate-300"
       >
         <thead class="bg-slate-100 sticky top-0 z-10">
-          <tr class="select-none">
+          <tr class="select-none text-xs">
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
             >
-              Pick
+              #
             </th>
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
+            >
+              Δ
+            </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-left font-semibold"
             >
               Player
             </th>
             <th
-              class="border-b border-slate-300 px-4 py-2 text-left text-sm font-semibold"
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
             >
               Pos
             </th>
+            <th
+              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
+            >
+              Team
+            </th>
+            <th class="border-b border-slate-300 px-4 py-2"></th>
           </tr>
         </thead>
+
         <tbody>
           <template
             v-for="item in displayList"
@@ -368,7 +398,7 @@ const displayList = computed<DisplayItem[]>(() => {
             <!-- Round header -->
             <tr v-if="item.type === 'header'">
               <td
-                colspan="3"
+                colspan="6"
                 class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
               >
                 Round {{ item.round }}
@@ -387,14 +417,10 @@ const displayList = computed<DisplayItem[]>(() => {
     </div>
   </div>
 
-/* Excel-like table hover outline (optional) */
 tbody tr:hover {
   outline: 2px solid rgba(0, 0, 0, 0.15);
   outline-offset: -2px;
 }
-
-/* Position colors duplicated here so the view still works in isolation.
-   If you centralize them globally, you can delete this block. */
 .rb {
   background-color: #c9dcf3;
 }
@@ -437,26 +463,58 @@ function onDraftedByOthers() {
     class="select-none cursor-default"
     :class="props.player.position.toLowerCase()"
   >
-    <!-- Pick -->
+    <!-- Rank -->
     <td
-      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
     >
       {{ props.player.rank }}
     </td>
 
+    <!-- Δ -->
+    <td
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
+      :title="
+        props.player.originalRank == null
+          ? 'New to rankings (no original rank)'
+          : 'Change vs original rank'
+      "
+    >
+      <!-- Not originally ranked -->
+      <span v-if="props.player.originalRank == null" class="delta-nr">NR</span>
+
+      <!-- No change -->
+      <span
+        v-else-if="
+          props.player.rankChange == null || props.player.rankChange === 0
+        "
+        class="delta-zero"
+        >–</span
+      >
+
+      <!-- Has change -->
+      <span
+        v-else
+        :class="props.player.rankChange > 0 ? 'delta-pos' : 'delta-neg'"
+      >
+        {{
+          props.player.rankChange > 0
+            ? `+${props.player.rankChange}`
+            : props.player.rankChange
+        }}
+      </span>
+    </td>
+
     <!-- Player + buttons -->
     <td
-      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+      class="border border-slate-300 px-2 py-2 text-sm align-middle bg-transparent"
     >
       <div class="flex items-center gap-2 px-2 py-1 text-slate-900">
         <span class="truncate">{{ props.player.name }}</span>
-
-        <div class="ml-auto flex gap-3">
+        <div class="ml-auto flex gap-2">
           <button
             type="button"
             @click="onMyTeam"
             class="px-3.5 py-1.5 border rounded-md text-sm font-semibold transition bg-blue-600 text-white border-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            aria-label="Add to My Team"
             title="Add to My Team"
           >
             My Team
@@ -466,7 +524,6 @@ function onDraftedByOthers() {
             type="button"
             @click="onDraftedByOthers"
             class="px-3.5 py-1.5 border rounded-md text-sm font-medium transition bg-white text-slate-700 border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-            aria-label="Mark Drafted by Others"
             title="Mark Drafted by Others"
           >
             Drafted
@@ -475,23 +532,30 @@ function onDraftedByOthers() {
       </div>
     </td>
 
-    <!-- Pos chip -->
+    <!-- Pos -->
     <td
-      class="border border-slate-300 px-4 py-2 text-sm align-middle bg-transparent"
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
     >
       <span
-        :class="[
-          'px-2 py-0.5 rounded text-[10px] font-semibold text-slate-900',
-          props.player.position.toLowerCase(),
-        ]"
+        class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-900"
       >
         {{ props.player.position }}
       </span>
     </td>
+
+    <!-- Team -->
+    <td
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent uppercase"
+    >
+      {{ props.player.team ?? "—" }}
+    </td>
+
+    <!-- actions spacer for alignment (kept empty; buttons live in Player cell) -->
+    <td
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
+    ></td>
   </tr>
 
-/* Shared position colors (used on <tr> and on the little chip).
-   Keep UNSCOPED if you color rows from another component. */
 .rb {
   background-color: #c9dcf3;
 } /* Light Blue  */
@@ -511,6 +575,21 @@ function onDraftedByOthers() {
 .k {
   background-color: #f5baf4;
 } /* Pink/Purple */
+.delta-pos {
+  color: #dc2626;
+  font-weight: 600;
+} /* red for slipping */
+.delta-neg {
+  color: #16a34a;
+  font-weight: 600;
+} /* green for improving */
+.delta-zero {
+  color: #94a3b8;
+} /* gray dash */
+.delta-nr {
+  color: #475569;
+  font-weight: 600;
+} /* neutral slate */
 
 === src/components/controls/TeamsPicker.vue ===
 const props = defineProps<{ modelValue: number; options?: number[] }>();
@@ -756,14 +835,14 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
 
 === src/stores/players.ts ===
 import { defineStore } from "pinia";
-import rawPlayers from "@data/players_8_19_2025_enriched_full.json";
+import rawPlayers from "@data/players_8_21_2025_enriched_corrected.json";
 
 export interface Player {
   rank: number;
   name: string;
   position: "RB" | "WR" | "TE" | "QB";
   originalRank: number;
-  previousRank: number | null;
+
   rankChange: number | null;
   bye: number | null;
   team: string | null;
@@ -775,7 +854,6 @@ export const usePlayersStore = defineStore("players", {
       ...p,
       rank: Math.trunc(p.rank), // ensure integer
       originalRank: Math.trunc(p.originalRank),
-      previousRank: p.previousRank != null ? Math.trunc(p.previousRank) : null,
       bye: p.bye != null ? Math.trunc(p.bye) : null,
     }));
 
@@ -3281,8 +3359,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 1,
     "originalRank": 1,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 1,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3292,8 +3370,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 2,
     "originalRank": 2,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 2,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3303,8 +3381,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 3,
     "originalRank": 3,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 3,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3314,8 +3392,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 1,
     "originalRank": 4,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 4,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3325,8 +3403,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 2,
     "originalRank": 5,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 5,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3336,8 +3414,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 3,
     "originalRank": 6,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 6,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3347,8 +3425,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 4,
     "originalRank": 7,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 7,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3358,8 +3436,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 5,
     "originalRank": 8,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 8,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3369,8 +3447,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 4,
     "originalRank": 9,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 9,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3380,8 +3458,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 5,
     "originalRank": 10,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 10,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3391,8 +3469,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 6,
     "originalRank": 11,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 11,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3402,8 +3480,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 7,
     "originalRank": 12,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 12,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3413,8 +3491,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 6,
     "originalRank": 13,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 13,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3424,8 +3502,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 7,
     "originalRank": 14,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 14,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3435,8 +3513,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 8,
     "originalRank": 15,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 15,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3446,8 +3524,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 9,
     "originalRank": 16,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 16,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3457,8 +3535,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 8,
     "originalRank": 17,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 17,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3468,8 +3546,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 9,
     "originalRank": 18,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 18,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3479,8 +3557,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 10,
     "originalRank": 19,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 19,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3490,8 +3568,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 10,
     "originalRank": 20,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 20,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3501,8 +3579,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 11,
     "originalRank": 21,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 21,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3512,8 +3590,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 12,
     "originalRank": 22,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 22,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3523,8 +3601,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 13,
     "originalRank": 23,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 23,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3534,8 +3612,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 11,
     "originalRank": 24,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 24,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3545,8 +3623,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 12,
     "originalRank": 25,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 25,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3556,8 +3634,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 13,
     "originalRank": 26,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 26,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3567,8 +3645,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 14,
     "originalRank": 27,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 27,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3578,8 +3656,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 1,
     "originalRank": 28,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 28,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3589,8 +3667,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 2,
     "originalRank": 29,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 29,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3600,8 +3678,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 15,
     "originalRank": 30,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 30,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3611,8 +3689,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 16,
     "originalRank": 31,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 31,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3622,8 +3700,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 17,
     "originalRank": 32,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 32,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -3633,8 +3711,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 14,
     "originalRank": 33,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 34,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3644,8 +3722,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 15,
     "originalRank": 34,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 35,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3655,8 +3733,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 3,
     "originalRank": 35,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 36,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3666,8 +3744,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 16,
     "originalRank": 36,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 37,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3677,8 +3755,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 1,
     "originalRank": 37,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 38,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3688,8 +3766,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 2,
     "originalRank": 38,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 39,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3699,8 +3777,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 17,
     "originalRank": 39,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 40,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3710,8 +3788,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 18,
     "originalRank": 40,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 41,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3721,8 +3799,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 19,
     "originalRank": 41,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 42,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3732,8 +3810,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 20,
     "originalRank": 42,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 43,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -3743,8 +3821,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 21,
     "originalRank": 43,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 45,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3754,8 +3832,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 18,
     "originalRank": 44,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 46,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3765,8 +3843,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 22,
     "originalRank": 45,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 47,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3776,8 +3854,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 3,
     "originalRank": 46,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 48,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3787,8 +3865,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 4,
     "originalRank": 47,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 49,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3798,8 +3876,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 19,
     "originalRank": 48,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 50,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3809,8 +3887,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 4,
     "originalRank": 49,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 51,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3820,8 +3898,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 5,
     "originalRank": 50,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 52,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3831,8 +3909,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 6,
     "originalRank": 51,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 53,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3842,8 +3920,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 7,
     "originalRank": 52,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 54,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3853,8 +3931,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 23,
     "originalRank": 53,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 55,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3864,8 +3942,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 24,
     "originalRank": 54,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 56,
+    "rankChange": -2,
     "bye": null,
     "team": null
   },
@@ -3875,8 +3953,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 25,
     "originalRank": 55,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 58,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3886,8 +3964,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 26,
     "originalRank": 56,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 59,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3897,8 +3975,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 27,
     "originalRank": 57,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 60,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3908,8 +3986,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 5,
     "originalRank": 58,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 61,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3919,8 +3997,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 6,
     "originalRank": 59,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 62,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3930,8 +4008,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 20,
     "originalRank": 60,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 63,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3941,8 +4019,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 21,
     "originalRank": 61,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 64,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3952,8 +4030,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 22,
     "originalRank": 62,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 65,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3963,8 +4041,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 23,
     "originalRank": 63,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 66,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3974,8 +4052,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 24,
     "originalRank": 64,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 67,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3985,8 +4063,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 28,
     "originalRank": 65,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 68,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -3996,8 +4074,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 25,
     "originalRank": 66,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 69,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -4007,8 +4085,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 29,
     "originalRank": 67,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 70,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -4018,8 +4096,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 30,
     "originalRank": 68,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 71,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -4029,8 +4107,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 31,
     "originalRank": 69,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 72,
+    "rankChange": -3,
     "bye": null,
     "team": null
   },
@@ -4040,8 +4118,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 32,
     "originalRank": 70,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 98,
+    "rankChange": -28,
     "bye": null,
     "team": null
   },
@@ -4051,8 +4129,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 33,
     "originalRank": 71,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 44,
+    "rankChange": 27,
     "bye": null,
     "team": null
   },
@@ -4062,8 +4140,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 34,
     "originalRank": 72,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 57,
+    "rankChange": 15,
     "bye": null,
     "team": null
   },
@@ -4073,8 +4151,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 26,
     "originalRank": 73,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 92,
+    "rankChange": -19,
     "bye": null,
     "team": null
   },
@@ -4084,8 +4162,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 27,
     "originalRank": 74,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 33,
+    "rankChange": 41,
     "bye": null,
     "team": null
   },
@@ -4095,8 +4173,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 28,
     "originalRank": 75,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 74,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4106,8 +4184,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 29,
     "originalRank": 76,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 75,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4117,8 +4195,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 30,
     "originalRank": 77,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 76,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4128,8 +4206,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 35,
     "originalRank": 78,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 77,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4139,8 +4217,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 36,
     "originalRank": 79,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 78,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4150,8 +4228,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 31,
     "originalRank": 80,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 79,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4161,8 +4239,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 37,
     "originalRank": 81,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 80,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4172,8 +4250,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 38,
     "originalRank": 82,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 81,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4183,8 +4261,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 39,
     "originalRank": 83,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 83,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4194,8 +4272,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 40,
     "originalRank": 84,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 73,
+    "rankChange": 11,
     "bye": null,
     "team": null
   },
@@ -4205,8 +4283,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 41,
     "originalRank": 85,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 84,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4216,8 +4294,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 42,
     "originalRank": 86,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 85,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4227,8 +4305,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 43,
     "originalRank": 87,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 116,
+    "rankChange": -29,
     "bye": null,
     "team": null
   },
@@ -4238,8 +4316,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 44,
     "originalRank": 88,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 82,
+    "rankChange": 6,
     "bye": null,
     "team": null
   },
@@ -4249,8 +4327,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 45,
     "originalRank": 89,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 86,
+    "rankChange": 3,
     "bye": null,
     "team": null
   },
@@ -4260,8 +4338,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 32,
     "originalRank": 90,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 88,
+    "rankChange": 2,
     "bye": null,
     "team": null
   },
@@ -4271,8 +4349,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 33,
     "originalRank": 91,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 89,
+    "rankChange": 2,
     "bye": null,
     "team": null
   },
@@ -4282,8 +4360,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 34,
     "originalRank": 92,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 90,
+    "rankChange": 2,
     "bye": null,
     "team": null
   },
@@ -4293,8 +4371,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 35,
     "originalRank": 93,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 91,
+    "rankChange": 2,
     "bye": null,
     "team": null
   },
@@ -4304,8 +4382,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 36,
     "originalRank": 94,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 93,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4315,8 +4393,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 37,
     "originalRank": 95,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 94,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4326,8 +4404,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 46,
     "originalRank": 96,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 95,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4337,8 +4415,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 47,
     "originalRank": 97,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 96,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4348,8 +4426,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 38,
     "originalRank": 98,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 97,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4370,8 +4448,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 49,
     "originalRank": 100,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 99,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4381,8 +4459,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 39,
     "originalRank": 101,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 100,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4392,8 +4470,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 7,
     "originalRank": 102,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 101,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4403,8 +4481,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 8,
     "originalRank": 103,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 102,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4414,8 +4492,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 40,
     "originalRank": 104,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 103,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4425,8 +4503,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 41,
     "originalRank": 105,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 104,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4436,8 +4514,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 50,
     "originalRank": 106,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 105,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4447,8 +4525,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 42,
     "originalRank": 107,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 107,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4458,8 +4536,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 43,
     "originalRank": 108,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 136,
+    "rankChange": -28,
     "bye": null,
     "team": null
   },
@@ -4469,8 +4547,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 44,
     "originalRank": 109,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 108,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4480,8 +4558,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 45,
     "originalRank": 110,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 109,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4491,8 +4569,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 8,
     "originalRank": 111,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 110,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4502,8 +4580,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 9,
     "originalRank": 112,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 111,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4513,8 +4591,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 10,
     "originalRank": 113,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 112,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4524,8 +4602,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 11,
     "originalRank": 114,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 113,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4535,8 +4613,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 51,
     "originalRank": 115,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 114,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4546,8 +4624,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 52,
     "originalRank": 116,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 115,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4557,8 +4635,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 53,
     "originalRank": 117,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 117,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4568,8 +4646,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 9,
     "originalRank": 118,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 118,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4579,8 +4657,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 10,
     "originalRank": 119,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 119,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4590,8 +4668,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 11,
     "originalRank": 120,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 120,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4601,8 +4679,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 12,
     "originalRank": 121,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 121,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4612,8 +4690,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 46,
     "originalRank": 122,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 123,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4623,8 +4701,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 47,
     "originalRank": 123,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 124,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4634,8 +4712,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 48,
     "originalRank": 124,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 125,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4645,8 +4723,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 49,
     "originalRank": 125,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 126,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4656,8 +4734,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 54,
     "originalRank": 126,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 127,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4667,8 +4745,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 55,
     "originalRank": 127,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 128,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4678,8 +4756,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 56,
     "originalRank": 128,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 129,
+    "rankChange": -1,
     "bye": null,
     "team": null
   },
@@ -4689,8 +4767,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 57,
     "originalRank": 129,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 191,
+    "rankChange": -62,
     "bye": null,
     "team": null
   },
@@ -4700,8 +4778,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 58,
     "originalRank": 130,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 130,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4711,8 +4789,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 59,
     "originalRank": 131,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 131,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4722,8 +4800,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 12,
     "originalRank": 132,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 132,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4733,8 +4811,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 13,
     "originalRank": 133,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 133,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4744,8 +4822,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 14,
     "originalRank": 134,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 134,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4755,8 +4833,8 @@ Rank	Name	Team	Pos	Bye
     "position": "TE",
     "positionRank": 15,
     "originalRank": 135,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 87,
+    "rankChange": 48,
     "bye": null,
     "team": null
   },
@@ -4766,8 +4844,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 50,
     "originalRank": 136,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 135,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4777,8 +4855,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 51,
     "originalRank": 137,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 137,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4788,8 +4866,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 52,
     "originalRank": 138,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 106,
+    "rankChange": 32,
     "bye": null,
     "team": null
   },
@@ -4799,8 +4877,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 53,
     "originalRank": 139,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 138,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4810,8 +4888,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 54,
     "originalRank": 140,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 139,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4821,8 +4899,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 60,
     "originalRank": 141,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 140,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4832,8 +4910,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 61,
     "originalRank": 142,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 141,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -4843,8 +4921,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 62,
     "originalRank": 143,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 143,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4854,8 +4932,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 13,
     "originalRank": 144,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 144,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4865,8 +4943,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 14,
     "originalRank": 145,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 145,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4876,8 +4954,8 @@ Rank	Name	Team	Pos	Bye
     "position": "QB",
     "positionRank": 15,
     "originalRank": 146,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 146,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4887,8 +4965,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 63,
     "originalRank": 147,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 147,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4898,8 +4976,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 64,
     "originalRank": 148,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 148,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4909,8 +4987,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 65,
     "originalRank": 149,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 149,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4920,8 +4998,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 66,
     "originalRank": 150,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 150,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4931,8 +5009,8 @@ Rank	Name	Team	Pos	Bye
     "position": "WR",
     "positionRank": 67,
     "originalRank": 151,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 151,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4942,8 +5020,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 55,
     "originalRank": 152,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 152,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4953,8 +5031,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 56,
     "originalRank": 153,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 153,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4964,8 +5042,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 57,
     "originalRank": 154,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 154,
+    "rankChange": 0,
     "bye": null,
     "team": null
   },
@@ -4975,8 +5053,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 58,
     "originalRank": 155,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 200,
+    "rankChange": -45,
     "bye": null,
     "team": null
   },
@@ -4986,8 +5064,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 59,
     "originalRank": 156,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 122,
+    "rankChange": 34,
     "bye": null,
     "team": null
   },
@@ -4997,8 +5075,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 60,
     "originalRank": 157,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 156,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -5008,8 +5086,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 61,
     "originalRank": 158,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 157,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -5019,8 +5097,8 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 62,
     "originalRank": 159,
-    "previousRank": null,
-    "rankChange": null,
+    "previousRank": 158,
+    "rankChange": 1,
     "bye": null,
     "team": null
   },
@@ -5030,8 +5108,1613 @@ Rank	Name	Team	Pos	Bye
     "position": "RB",
     "positionRank": 63,
     "originalRank": 160,
-    "previousRank": null,
+    "previousRank": 159,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  }
+]
+
+
+=== src/data/players_8_21_2025_enriched_corrected.json ===
+[
+  {
+    "rank": 1,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1,
+    "originalRank": 1,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 2,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2,
+    "originalRank": 2,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 3,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3,
+    "originalRank": 3,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 4,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1,
+    "originalRank": 4,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 5,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2,
+    "originalRank": 5,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 6,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3,
+    "originalRank": 6,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 7,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4,
+    "originalRank": 7,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 8,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5,
+    "originalRank": 8,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 9,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4,
+    "originalRank": 9,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 10,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5,
+    "originalRank": 10,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 11,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6,
+    "originalRank": 11,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 12,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7,
+    "originalRank": 12,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 13,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6,
+    "originalRank": 13,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 14,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7,
+    "originalRank": 14,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 15,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8,
+    "originalRank": 15,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 16,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9,
+    "originalRank": 16,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 17,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8,
+    "originalRank": 17,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 18,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9,
+    "originalRank": 18,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 19,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10,
+    "originalRank": 19,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 20,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10,
+    "originalRank": 20,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 21,
+    "name": "Chase Brown",
+    "position": "RB",
+    "positionRank": 11,
+    "originalRank": 21,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 22,
+    "name": "De'Von Achane",
+    "position": "RB",
+    "positionRank": 12,
+    "originalRank": 22,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 23,
+    "name": "Alvin Kamara",
+    "position": "RB",
+    "positionRank": 13,
+    "originalRank": 23,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 24,
+    "name": "Tyreek Hill",
+    "position": "WR",
+    "positionRank": 11,
+    "originalRank": 24,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 25,
+    "name": "Drake London",
+    "position": "WR",
+    "positionRank": 12,
+    "originalRank": 25,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 26,
+    "name": "Ladd McConkey",
+    "position": "WR",
+    "positionRank": 13,
+    "originalRank": 26,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 27,
+    "name": "James Cook",
+    "position": "RB",
+    "positionRank": 14,
+    "originalRank": 27,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 28,
+    "name": "Brock Bowers",
+    "position": "TE",
+    "positionRank": 1,
+    "originalRank": 28,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 29,
+    "name": "Trey McBride",
+    "position": "TE",
+    "positionRank": 2,
+    "originalRank": 29,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 30,
+    "name": "Chuba Hubbard",
+    "position": "RB",
+    "positionRank": 15,
+    "originalRank": 30,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 31,
+    "name": "Bucky Irving",
+    "position": "RB",
+    "positionRank": 16,
+    "originalRank": 31,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 32,
+    "name": "Kenneth Walker",
+    "position": "RB",
+    "positionRank": 17,
+    "originalRank": 32,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 33,
+    "name": "D.J. Moore",
+    "position": "WR",
+    "positionRank": 14,
+    "originalRank": 35,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 34,
+    "name": "George Kittle",
+    "position": "TE",
+    "positionRank": 3,
+    "originalRank": 36,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 35,
+    "name": "Garrett Wilson",
+    "position": "WR",
+    "positionRank": 15,
+    "originalRank": 37,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 36,
+    "name": "Lamar Jackson",
+    "position": "QB",
+    "positionRank": 1,
+    "originalRank": 38,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 37,
+    "name": "Josh Allen",
+    "position": "QB",
+    "positionRank": 2,
+    "originalRank": 39,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 38,
+    "name": "Tee Higgins",
+    "position": "WR",
+    "positionRank": 16,
+    "originalRank": 40,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 39,
+    "name": "Davante Adams",
+    "position": "WR",
+    "positionRank": 17,
+    "originalRank": 41,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 40,
+    "name": "Terry McLaurin",
+    "position": "WR",
+    "positionRank": 18,
+    "originalRank": 34,
+    "rankChange": 7,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 41,
+    "name": "Zay Flowers",
+    "position": "WR",
+    "positionRank": 19,
+    "originalRank": 42,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 42,
+    "name": "Marvin Harrison",
+    "position": "WR",
+    "positionRank": 20,
+    "originalRank": 43,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 43,
+    "name": "DK Metcalf",
+    "position": "WR",
+    "positionRank": 21,
+    "originalRank": 45,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 44,
+    "name": "James Conner",
+    "position": "RB",
+    "positionRank": 18,
+    "originalRank": 46,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 45,
+    "name": "DeVonta Smith",
+    "position": "WR",
+    "positionRank": 22,
+    "originalRank": 47,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 46,
+    "name": "Joe Burrow",
+    "position": "QB",
+    "positionRank": 3,
+    "originalRank": 48,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 47,
+    "name": "Jayden Daniels",
+    "position": "QB",
+    "positionRank": 4,
+    "originalRank": 49,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 48,
+    "name": "Omarion Hampton",
+    "position": "RB",
+    "positionRank": 19,
+    "originalRank": 50,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 49,
+    "name": "Mark Andrews",
+    "position": "TE",
+    "positionRank": 4,
+    "originalRank": 51,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 50,
+    "name": "Sam LaPorta",
+    "position": "TE",
+    "positionRank": 5,
+    "originalRank": 52,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 51,
+    "name": "T.J. Hockenson",
+    "position": "TE",
+    "positionRank": 6,
+    "originalRank": 53,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 52,
+    "name": "Travis Kelce",
+    "position": "TE",
+    "positionRank": 7,
+    "originalRank": 54,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 53,
+    "name": "Courtland Sutton",
+    "position": "WR",
+    "positionRank": 23,
+    "originalRank": 55,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 54,
+    "name": "Mike Evans",
+    "position": "WR",
+    "positionRank": 24,
+    "originalRank": 56,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 55,
+    "name": "Jameson Williams",
+    "position": "WR",
+    "positionRank": 25,
+    "originalRank": 58,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 56,
+    "name": "Ricky Pearsall",
+    "position": "WR",
+    "positionRank": 26,
+    "originalRank": 59,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 57,
+    "name": "George Pickens",
+    "position": "WR",
+    "positionRank": 27,
+    "originalRank": 60,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 58,
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "positionRank": 5,
+    "originalRank": 61,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 59,
+    "name": "Jalen Hurts",
+    "position": "QB",
+    "positionRank": 6,
+    "originalRank": 62,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 60,
+    "name": "Tyrone Tracy",
+    "position": "RB",
+    "positionRank": 20,
+    "originalRank": 63,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 61,
+    "name": "Aaron Jones",
+    "position": "RB",
+    "positionRank": 21,
+    "originalRank": 64,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 62,
+    "name": "David Montgomery",
+    "position": "RB",
+    "positionRank": 22,
+    "originalRank": 65,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 63,
+    "name": "Tony Pollard",
+    "position": "RB",
+    "positionRank": 23,
+    "originalRank": 66,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 64,
+    "name": "D'Andre Swift",
+    "position": "RB",
+    "positionRank": 24,
+    "originalRank": 67,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 65,
+    "name": "Chris Olave",
+    "position": "WR",
+    "positionRank": 28,
+    "originalRank": 68,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 66,
+    "name": "Jaylen Warren",
+    "position": "RB",
+    "positionRank": 25,
+    "originalRank": 69,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 67,
+    "name": "Jerry Jeudy",
+    "position": "WR",
+    "positionRank": 29,
+    "originalRank": 70,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 68,
+    "name": "Jaylen Waddle",
+    "position": "WR",
+    "positionRank": 30,
+    "originalRank": 71,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 69,
+    "name": "Calvin Ridley",
+    "position": "WR",
+    "positionRank": 31,
+    "originalRank": 72,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 70,
+    "name": "Tetairoa McMillan",
+    "position": "WR",
+    "positionRank": 32,
+    "originalRank": 98,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 71,
+    "name": "Rashee Rice",
+    "position": "WR",
+    "positionRank": 33,
+    "originalRank": 44,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 72,
+    "name": "Jordan Addison",
+    "position": "WR",
+    "positionRank": 34,
+    "originalRank": 57,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 73,
+    "name": "TreVeyon Henderson",
+    "position": "RB",
+    "positionRank": 26,
+    "originalRank": 92,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 74,
+    "name": "Joe Mixon",
+    "position": "RB",
+    "positionRank": 27,
+    "originalRank": 33,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 75,
+    "name": "Isiah Pacheco",
+    "position": "RB",
+    "positionRank": 28,
+    "originalRank": 74,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 76,
+    "name": "Travis Etienne",
+    "position": "RB",
+    "positionRank": 29,
+    "originalRank": 75,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 77,
+    "name": "J.K. Dobbins",
+    "position": "RB",
+    "positionRank": 30,
+    "originalRank": 76,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 78,
+    "name": "Jauan Jennings",
+    "position": "WR",
+    "positionRank": 35,
+    "originalRank": 77,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 79,
+    "name": "Rome Odunze",
+    "position": "WR",
+    "positionRank": 36,
+    "originalRank": 78,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 80,
+    "name": "Rachaad White",
+    "position": "RB",
+    "positionRank": 31,
+    "originalRank": 79,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 81,
+    "name": "Deebo Samuel",
+    "position": "WR",
+    "positionRank": 37,
+    "originalRank": 80,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 82,
+    "name": "Jakobi Meyers",
+    "position": "WR",
+    "positionRank": 38,
+    "originalRank": 81,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 83,
+    "name": "Travis Hunter",
+    "position": "WR",
+    "positionRank": 39,
+    "originalRank": 83,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 84,
+    "name": "Chris Godwin",
+    "position": "WR",
+    "positionRank": 40,
+    "originalRank": 73,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 85,
+    "name": "Xavier Worthy",
+    "position": "WR",
+    "positionRank": 41,
+    "originalRank": 84,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 86,
+    "name": "Stefon Diggs",
+    "position": "WR",
+    "positionRank": 42,
+    "originalRank": 85,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 87,
+    "name": "Emeka Egbuka",
+    "position": "WR",
+    "positionRank": 43,
+    "originalRank": 116,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 88,
+    "name": "Jayden Reed",
+    "position": "WR",
+    "positionRank": 44,
+    "originalRank": 82,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 89,
+    "name": "Cooper Kupp",
+    "position": "WR",
+    "positionRank": 45,
+    "originalRank": 86,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 90,
+    "name": "Austin Ekeler",
+    "position": "RB",
+    "positionRank": 32,
+    "originalRank": 88,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 91,
+    "name": "Tank Bigsby",
+    "position": "RB",
+    "positionRank": 33,
+    "originalRank": 89,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 92,
+    "name": "Kaleb Johnson",
+    "position": "RB",
+    "positionRank": 34,
+    "originalRank": 90,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 93,
+    "name": "R.J. Harvey",
+    "position": "RB",
+    "positionRank": 35,
+    "originalRank": 93,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "originalRank": null,
+    "team": null,
+    "bye": null,
+    "name": "Jacory Croskey-Merritt",
+    "position": "RB",
+    "rank": 94,
     "rankChange": null,
+    "positionRank": 36
+  },
+  {
+    "rank": 95,
+    "name": "Jerome Ford",
+    "position": "RB",
+    "positionRank": 37,
+    "originalRank": 94,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 96,
+    "name": "Michael Pittman",
+    "position": "WR",
+    "positionRank": 46,
+    "originalRank": 95,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 97,
+    "name": "Khalil Shakir",
+    "position": "WR",
+    "positionRank": 47,
+    "originalRank": 96,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 98,
+    "name": "Zach Charbonnet",
+    "position": "RB",
+    "positionRank": 38,
+    "originalRank": 97,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 99,
+    "name": "Keenan Allen",
+    "position": "WR",
+    "positionRank": 48,
+    "originalRank": 99,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 100,
+    "name": "Josh Downs",
+    "position": "WR",
+    "positionRank": 49,
+    "originalRank": 99,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 101,
+    "name": "Justin Herbert",
+    "position": "QB",
+    "positionRank": 7,
+    "originalRank": 101,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 102,
+    "name": "Jared Goff",
+    "position": "QB",
+    "positionRank": 8,
+    "originalRank": 102,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 103,
+    "name": "Rhamondre Stevenson",
+    "position": "RB",
+    "positionRank": 39,
+    "originalRank": 103,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 104,
+    "name": "Jordan Mason",
+    "position": "RB",
+    "positionRank": 40,
+    "originalRank": 104,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 105,
+    "name": "Brandon Aiyuk",
+    "position": "WR",
+    "positionRank": 50,
+    "originalRank": 105,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 106,
+    "name": "Javonte Williams",
+    "position": "RB",
+    "positionRank": 41,
+    "originalRank": 107,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 107,
+    "name": "Brian Robinson",
+    "position": "RB",
+    "positionRank": 42,
+    "originalRank": 91,
+    "rankChange": 14,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 108,
+    "name": "Isaac Guerendo",
+    "position": "RB",
+    "positionRank": 43,
+    "originalRank": 136,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 109,
+    "name": "Jaylen Wright",
+    "position": "RB",
+    "positionRank": 44,
+    "originalRank": 108,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 110,
+    "name": "Ray Davis",
+    "position": "RB",
+    "positionRank": 45,
+    "originalRank": 109,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 111,
+    "name": "Colston Loveland",
+    "position": "TE",
+    "positionRank": 8,
+    "originalRank": 110,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 112,
+    "name": "Tyler Warren",
+    "position": "TE",
+    "positionRank": 9,
+    "originalRank": 111,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 113,
+    "name": "Dalton Kincaid",
+    "position": "TE",
+    "positionRank": 10,
+    "originalRank": 112,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 114,
+    "name": "Tucker Kraft",
+    "position": "TE",
+    "positionRank": 11,
+    "originalRank": 113,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 115,
+    "name": "Matthew Golden",
+    "position": "WR",
+    "positionRank": 51,
+    "originalRank": 114,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 116,
+    "name": "Luther Burden",
+    "position": "WR",
+    "positionRank": 52,
+    "originalRank": 115,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 117,
+    "name": "Jayden Higgins",
+    "position": "WR",
+    "positionRank": 53,
+    "originalRank": 117,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 118,
+    "name": "C.J. Stroud",
+    "position": "QB",
+    "positionRank": 9,
+    "originalRank": 118,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 119,
+    "name": "Brock Purdy",
+    "position": "QB",
+    "positionRank": 10,
+    "originalRank": 119,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 120,
+    "name": "Jordan Love",
+    "position": "QB",
+    "positionRank": 11,
+    "originalRank": 120,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 121,
+    "name": "Baker Mayfield",
+    "position": "QB",
+    "positionRank": 12,
+    "originalRank": 121,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 122,
+    "name": "Tyler Allgeier",
+    "position": "RB",
+    "positionRank": 46,
+    "originalRank": 123,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 123,
+    "name": "Cam Skattebo",
+    "position": "RB",
+    "positionRank": 47,
+    "originalRank": 124,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 124,
+    "name": "Najee Harris",
+    "position": "RB",
+    "positionRank": 48,
+    "originalRank": 100,
+    "rankChange": 23,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 125,
+    "name": "Blake Corum",
+    "position": "RB",
+    "positionRank": 49,
+    "originalRank": 125,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 126,
+    "name": "Rico Dowdle",
+    "position": "RB",
+    "positionRank": 50,
+    "originalRank": 126,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 127,
+    "name": "Christian Kirk",
+    "position": "WR",
+    "positionRank": 54,
+    "originalRank": 127,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 128,
+    "name": "Keon Coleman",
+    "position": "WR",
+    "positionRank": 55,
+    "originalRank": 128,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 129,
+    "name": "Darnell Mooney",
+    "position": "WR",
+    "positionRank": 56,
+    "originalRank": 129,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 130,
+    "name": "Demario Douglas",
+    "position": "WR",
+    "positionRank": 57,
+    "originalRank": 191,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 131,
+    "name": "Adam Thielen",
+    "position": "WR",
+    "positionRank": 58,
+    "originalRank": 130,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 132,
+    "name": "Romeo Doubs",
+    "position": "WR",
+    "positionRank": 59,
+    "originalRank": 131,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 133,
+    "name": "Evan Engram",
+    "position": "TE",
+    "positionRank": 12,
+    "originalRank": 132,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 134,
+    "name": "Dallas Goedert",
+    "position": "TE",
+    "positionRank": 13,
+    "originalRank": 133,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 135,
+    "name": "David Njoku",
+    "position": "TE",
+    "positionRank": 14,
+    "originalRank": 134,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 136,
+    "name": "Jonnu Smith",
+    "position": "TE",
+    "positionRank": 15,
+    "originalRank": 87,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 137,
+    "name": "Trey Benson",
+    "position": "RB",
+    "positionRank": 51,
+    "originalRank": 135,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 138,
+    "name": "Dylan Sampson",
+    "position": "RB",
+    "positionRank": 52,
+    "originalRank": 137,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 139,
+    "name": "Tyjae Spears",
+    "position": "RB",
+    "positionRank": 53,
+    "originalRank": 106,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 140,
+    "name": "Keaton Mitchell",
+    "position": "RB",
+    "positionRank": 54,
+    "originalRank": 138,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 141,
+    "name": "Braelon Allen",
+    "position": "RB",
+    "positionRank": 55,
+    "originalRank": 139,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 142,
+    "name": "Rashid Shaheed",
+    "position": "WR",
+    "positionRank": 60,
+    "originalRank": 140,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 143,
+    "name": "Cedric Tillman",
+    "position": "WR",
+    "positionRank": 61,
+    "originalRank": 141,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 144,
+    "name": "Wan'Dale Robinson",
+    "position": "WR",
+    "positionRank": 62,
+    "originalRank": 143,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 145,
+    "name": "Kyler Murray",
+    "position": "QB",
+    "positionRank": 13,
+    "originalRank": 144,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 146,
+    "name": "Drake Maye",
+    "position": "QB",
+    "positionRank": 14,
+    "originalRank": 145,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 147,
+    "name": "Caleb Williams",
+    "position": "QB",
+    "positionRank": 15,
+    "originalRank": 146,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 148,
+    "name": "Jaylin Noel",
+    "position": "WR",
+    "positionRank": 63,
+    "originalRank": 147,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 149,
+    "name": "Xavier Legette",
+    "position": "WR",
+    "positionRank": 64,
+    "originalRank": 148,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 150,
+    "name": "Rashod Bateman",
+    "position": "WR",
+    "positionRank": 65,
+    "originalRank": 149,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 151,
+    "name": "Dontayvion Wicks",
+    "position": "WR",
+    "positionRank": 66,
+    "originalRank": 150,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 152,
+    "name": "Alec Pierce",
+    "position": "WR",
+    "positionRank": 67,
+    "originalRank": 151,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 153,
+    "name": "Kendre Miller",
+    "position": "RB",
+    "positionRank": 56,
+    "originalRank": 152,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 154,
+    "name": "Woody Marks",
+    "position": "RB",
+    "positionRank": 57,
+    "originalRank": 153,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 155,
+    "name": "Elijah Mitchell",
+    "position": "RB",
+    "positionRank": 58,
+    "originalRank": 154,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 156,
+    "name": "Jordan James",
+    "position": "RB",
+    "positionRank": 59,
+    "originalRank": 200,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 157,
+    "name": "Quinshon Judkins",
+    "position": "RB",
+    "positionRank": 60,
+    "originalRank": 122,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 158,
+    "name": "Trevor Etienne",
+    "position": "RB",
+    "positionRank": 61,
+    "originalRank": 156,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 159,
+    "name": "Will Shipley",
+    "position": "RB",
+    "positionRank": 62,
+    "originalRank": 157,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 160,
+    "name": "Jaydon Blue",
+    "position": "RB",
+    "positionRank": 63,
+    "originalRank": 158,
+    "rankChange": 1,
     "bye": null,
     "team": null
   }

@@ -32,12 +32,25 @@ function onDraftedByOthers() {
     <!-- Δ -->
     <td
       class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
+      :title="
+        props.player.isNew
+          ? 'New to rankings (no original rank)'
+          : 'Change vs original baseline'
+      "
     >
+      <!-- Not originally ranked -->
+      <span v-if="props.player.isNew" class="delta-nr">NR</span>
+
+      <!-- No change -->
       <span
-        v-if="props.player.rankChange == null || props.player.rankChange === 0"
+        v-else-if="
+          props.player.rankChange == null || props.player.rankChange === 0
+        "
         class="delta-zero"
         >–</span
       >
+
+      <!-- Has change -->
       <span
         v-else
         :class="props.player.rankChange > 0 ? 'delta-pos' : 'delta-neg'"
@@ -134,4 +147,8 @@ function onDraftedByOthers() {
 .delta-zero {
   color: #94a3b8;
 } /* gray dash */
+.delta-nr {
+  color: #475569;
+  font-weight: 600;
+} /* neutral slate */
 </style>
