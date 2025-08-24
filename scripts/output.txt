@@ -34,25 +34,323 @@ function roll() {
   emit("selected", n);
 }
 
-  <div class="flex flex-col space-y-6 gap-3">
+  <div class="flex flex-col border border-slate-200 rounded-md p-2 space-y-1">
     <button
       type="button"
       @click="roll"
-      class="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm"
+      class="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs"
     >
       {{ label }}
     </button>
 
-    <!-- shows only after first roll -->
-    <span v-if="value !== null" class="text-sm">
-      Draft position:
+    <p class="inline-flex items-center text-sm min-w-[120px]">
       <span
-        class="inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white font-semibold"
+        v-if="value !== null"
+        class="inline-flex items-center rounded px-2 bg-blue-600 text-white font-semibold ml-1"
       >
         {{ value }}
       </span>
-    </span>
+    </p>
   </div>
+
+=== src/components/FlagIcons.vue ===
+import { Icon } from "@iconify/vue";
+import type { Annotation } from "@/types/annotations";
+
+const props = defineProps<{ annotations: Annotation[] }>();
+
+function iconAndTitle(a: Annotation): { icon: string; title: string } {
+  if ((a as any).kind === "injury") {
+    const part = (a as any).part as string | undefined;
+    const status = (a as any).status as string | undefined;
+
+    if (part === "concussion")
+      return { icon: "tabler:brain", title: "Concussion" };
+    if (["ankle", "foot", "toe"].includes(part ?? ""))
+      return { icon: "tabler:shoe", title: `Injury: ${part}` };
+    if (["hand", "wrist"].includes(part ?? ""))
+      return { icon: "tabler:hand-stop", title: `Injury: ${part}` };
+    if (
+      ["knee", "shoulder", "hamstring", "quad", "groin", "back"].includes(
+        part ?? ""
+      )
+    ) {
+      return {
+        icon: "tabler:bandage",
+        title: `Injury: ${part}${status ? ` (${status})` : ""}`,
+      };
+    }
+    return {
+      icon: "tabler:stethoscope",
+      title: `Injury${status ? ` (${status})` : ""}`,
+    };
+  }
+
+  if ((a as any).kind === "oline") {
+    return (a as any).quality === "improved"
+      ? { icon: "tabler:shield-up", title: "Improved offensive line" }
+      : { icon: "tabler:shield-off", title: "Weak offensive line" };
+  }
+
+  if ((a as any).kind === "contract") {
+    const state = (a as any).state;
+    if (state === "holding-out")
+      return { icon: "tabler:hand-stop", title: "Contract holdout" };
+    if (state === "extension" || state === "signed") {
+      return {
+        icon: "tabler:file-certificate",
+        title: "Contract signed/extended",
+      };
+    }
+    return { icon: "tabler:signature", title: "Contract situation" };
+  }
+
+  if ((a as any).kind === "suspension") {
+    const games = (a as any).games as number | undefined;
+    return {
+      icon: "tabler:gavel",
+      title: `Suspension${games ? ` (${games} games)` : ""}`,
+    };
+  }
+
+  if ((a as any).kind === "depthchart") {
+    const whoLeft = (a as any).whoLeft as string | undefined;
+    return {
+      icon: "tabler:user-minus",
+      title: whoLeft ? `Vacated by ${whoLeft}` : "Depth chart cleared",
+    };
+  }
+
+  return { icon: "tabler:icons", title: "Note" };
+}
+
+  <span v-if="props.annotations?.length" class="flex items-center gap-1.5">
+    <Icon
+      v-for="(a, i) in props.annotations"
+      :key="i"
+      :icon="iconAndTitle(a).icon"
+      width="14"
+      :aria-label="iconAndTitle(a).title"
+      :title="iconAndTitle(a).title"
+    />
+  </span>
+
+:deep(svg) {
+  vertical-align: middle;
+}
+
+=== src/components/LegendSidebar.vue ===
+import { computed } from "vue";
+import legend from "@/data/legend.json";
+import {
+  ArrowUpRight,
+  AlertTriangle,
+  Flag,
+  Activity,
+  RotateCcw,
+  ThumbsDown,
+  CircleSlash,
+  ThumbsUp,
+  ActivitySquare,
+  Shield,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-vue-next";
+
+const props = defineProps<{
+  open: boolean;
+  openWidth?: string; // e.g. "10rem"
+  closedWidth?: string; // e.g. "4rem"
+}>();
+const emit = defineEmits<{ (e: "update:open", v: boolean): void }>();
+
+const isOpen = computed({
+  get: () => props.open,
+  set: (v) => emit("update:open", v),
+});
+
+// Single source of truth for the actual rendered width
+const width = computed(() =>
+  isOpen.value ? props.openWidth ?? "10rem" : props.closedWidth ?? "4rem"
+);
+
+const ICONS: Record<string, any> = {
+  ArrowUpRight,
+  AlertTriangle,
+  Flag,
+  Activity,
+  RotateCcw,
+  ThumbsDown,
+  CircleSlash,
+  ThumbsUp,
+  ActivitySquare,
+  Shield,
+};
+
+function toggle() {
+  isOpen.value = !isOpen.value;
+}
+
+type LegendItem = {
+  key: string;
+  label: string;
+  description: string;
+  icon?: string;
+};
+const items = legend as LegendItem[];
+
+  <aside
+    class="fixed top-0 left-0 h-screen bg-white border-r border-slate-200 shadow-sm overflow-y-auto z-30 transition-[width] duration-200"
+    :style="{ width }"
+    aria-label="Draft board legend"
+  >
+    <div
+      class="flex items-center justify-between h-12 border-b border-slate-200 px-2"
+    >
+      <h2
+        class="py-3 text-sm font-semibold tracking-wide text-slate-700 select-none"
+        :class="isOpen ? 'block' : 'sr-only'"
+      >
+        Draft legend
+      </h2>
+      <button
+        class="ml-auto p-2 hover:bg-slate-100 transition"
+        :aria-expanded="isOpen"
+        @click="toggle"
+      >
+        <component
+          :is="isOpen ? ChevronsLeft : ChevronsRight"
+          class="w-4 h-4"
+        />
+      </button>
+    </div>
+
+    <ul class="list-none m-0 p-0">
+      <li
+        v-for="it in items"
+        :key="it.key"
+        class="flex gap-3 py-3 px-2 items-start"
+      >
+        <component
+          :is="ICONS[it.icon ?? 'Flag']"
+          class="legend-icon"
+          :class="`legend-icon--${it.key}`"
+        />
+        <div class="min-w-0">
+          <span
+            class="legend-badge"
+            :class="`legend-badge--${it.key} capitalize`"
+          >
+            {{ it.label.toLowerCase() }}
+          </span>
+          <p class="legend-desc">{{ it.description }}</p>
+        </div>
+      </li>
+    </ul>
+  </aside>
+
+/* Badge base */
+.legend-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+/* Icon base */
+.legend-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+/* Description text */
+.legend-desc {
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  color: #475569;
+}
+
+/* Badge + icon colors per key */
+.legend-badge--oline_improved,
+.legend-icon--oline_improved {
+  background: #d1fae5;
+  color: #065f46;
+}
+.legend-badge--oline_concern,
+.legend-icon--oline_concern {
+  background: #ffe4e6;
+  color: #9f1239;
+}
+.legend-badge--flag,
+.legend-icon--flag {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.legend-badge--frag,
+.legend-icon--frag {
+  background: #fef3c7;
+  color: #92400e;
+}
+.legend-badge--post_hype,
+.legend-icon--post_hype {
+  background: #e0f2fe;
+  color: #075985;
+}
+.legend-badge--film_zero,
+.legend-icon--film_zero {
+  background: #e2e8f0;
+  color: #1f2937;
+}
+.legend-badge--acid_reflux,
+.legend-icon--acid_reflux {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.legend-badge--film_hero,
+.legend-icon--film_hero {
+  background: #ecfccb;
+  color: #3f6212;
+}
+.legend-badge--swing,
+.legend-icon--swing {
+  background: #fae8ff;
+  color: #701a75;
+}
+.legend-badge--safe,
+.legend-icon--safe {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+/* fallbacks */
+.legend-badge[class*="legend-badge--"]:not(
+    .legend-badge--oline_improved,
+    .legend-badge--oline_concern,
+    .legend-badge--flag,
+    .legend-badge--frag,
+    .legend-badge--post_hype,
+    .legend-badge--film_zero,
+    .legend-badge--acid_reflux,
+    .legend-badge--film_hero,
+    .legend-badge--swing,
+    .legend-badge--safe
+  ),
+.legend-icon[class*="legend-icon--"]:not(
+    .legend-icon--oline_improved,
+    .legend-icon--oline_concern,
+    .legend-icon--flag,
+    .legend-icon--frag,
+    .legend-icon--post_hype,
+    .legend-icon--film_zero,
+    .legend-icon--acid_reflux,
+    .legend-icon--film_hero,
+    .legend-icon--swing,
+    .legend-icon--safe
+  ) {
+  background: #f1f5f9;
+  color: #334155;
+}
 
 === src/components/PlayersBoard.vue ===
 import { ref } from "vue";
@@ -62,474 +360,253 @@ import DraftTable from "@/components/draft/DraftTable.vue";
 import RosterGrid from "@/components/roster/RosterGrid.vue";
 import BenchList from "@/components/roster/BenchList.vue";
 import DraftSlotRandomizer from "@/components/DraftSlotRandomizer.vue";
+import { usePlayersStore } from "@/stores/players";
 
 const teamOptions = [10, 12, 14, 16];
 const teams = ref<number>(12);
 
-const { roster, bench, draftedCount, draftById, releaseById, resetAll } =
-  useRoster();
+const { roster, bench, draftedCount, draftById, resetAll } = useRoster();
 
-  <div class="p-4 max-w-5xl mx-auto space-y-6">
-    <div
-      class="bg-slate-800 text-white text-sm px-3 py-1.5 flex items-center gap-3 rounded-t-md"
-    >
-      <span class="font-semibold">My Team</span>
-      <span class="ml-auto opacity-80">Draft Board</span>
-    </div>
+// When someone else drafts a player, hide them from the board
+const store = usePlayersStore();
+function draftedByOthers(id: string) {
+  store.hideById(id);
+}
 
-    <!-- Ribbon -->
-    <div class="bg-white border border-slate-300 rounded-b-md px-3 py-2">
-      <div class="flex flex-wrap items-center gap-3">
-        <TeamsPicker v-model="teams" :options="teamOptions" />
-        <div class="border border-slate-200 rounded-md p-2">
-          <div
-            class="text-[11px] tracking-wide uppercase text-slate-500 mb-1 text-center"
-          >
-            Actions
-          </div>
-          <button
-            @click="resetAll()"
-            class="px-4 py-1.5 border border-emerald-600 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium hover:bg-emerald-100 transition"
-          >
-            Reset
-          </button>
-        </div>
-        <div class="ml-auto text-sm text-slate-600">
-          <span class="font-semibold">{{ draftedCount }}</span> of 15 drafted
-        </div>
-      </div>
-    </div>
-
-    <!-- Top roster bar -->
+  <!-- Right pane content: top ribbon + roster snapshot + draft table -->
+  <div class="p-1 space-y-3">
+    <!-- Roster snapshot -->
     <section class="bg-slate-900 text-slate-100 rounded-lg p-3 shadow">
-      <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
-          My Team
-          <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded"
-            >{{ draftedCount }} of 15</span
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <h2
+            class="pb-2 text-sm font-semibold tracking-wide flex items-center gap-2"
           >
-        </h2>
-
-        <DraftSlotRandomizer
-          :min="1"
-          :max="teams"
-          label="Randomize Draft Slot"
-          @selected="(n:number)=>console.log('Selected slot:', n)"
-        />
-      </div>
-
-      <div class="mt-3 grid grid-cols-2 gap-3">
-        <RosterGrid :roster="roster" />
-        <BenchList :bench="bench" />
+            My Team
+            <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded"
+              >{{ draftedCount }} of 15</span
+            >
+          </h2>
+          <RosterGrid :roster="roster" />
+        </div>
+        <div>
+          <div class="">
+            <!-- Ribbon -->
+            <div
+              class="bg-white border border-slate-300 rounded-md px-3 py-2 space-y-2"
+            >
+              <div class="flex flex-wrap items-center gap-3">
+                <TeamsPicker v-model="teams" :options="teamOptions" />
+                <div class="border border-slate-200 rounded-md p-2">
+                  <div
+                    class="text-[11px] tracking-wide uppercase text-slate-500 mb-1 text-center"
+                  >
+                    Actions
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      @click="resetAll()"
+                      class="px-3.5 py-1.5 border border-emerald-600 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium hover:bg-emerald-100 transition"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+                <DraftSlotRandomizer
+                  :min="1"
+                  :max="teams"
+                  label="Randomize Draft Slot"
+                  @selected="(n:number)=>{}"
+                />
+              </div>
+            </div>
+          </div>
+          <BenchList :bench="bench" />
+        </div>
       </div>
     </section>
 
     <!-- Draft table -->
-    <DraftTable :teams="teams" @draft="draftById" @release="releaseById" />
-  </div>
-
-=== src/components/PlayersList.vue ===
-import { ref, reactive, computed } from "vue";
-import { usePlayersStore } from "@stores/players";
-import type { Player } from "@stores/players";
-import RosterRow from "@components/RosterRow.vue";
-import DraftSlotRandomizer from "@/components/DraftSlotRandomizer.vue";
-
-const store = usePlayersStore();
-
-const teamOptions = [10, 12, 14, 16];
-const teams = ref<number>(12);
-
-/** ---------- ROSTER STATE ---------- */
-type SlotId = "QB" | "WR1" | "WR2" | "WR3" | "RB1" | "RB2" | "TE";
-const roster = reactive<Record<SlotId, Player | null>>({
-  QB: null,
-  WR1: null,
-  WR2: null,
-  WR3: null,
-  RB1: null,
-  RB2: null,
-  TE: null,
-});
-const bench = ref<Player[]>([]);
-
-const targetsByPos: Record<Player["position"], SlotId[]> = {
-  WR: ["WR1", "WR2", "WR3"],
-  RB: ["RB1", "RB2"],
-  TE: ["TE"],
-  QB: ["QB"],
-};
-
-function draftToMyTeam(p: Player) {
-  for (const slot of targetsByPos[p.position]) {
-    if (!roster[slot]) {
-      roster[slot] = p;
-      store.hide(p);
-      return;
-    }
-  }
-  bench.value.push(p);
-  store.hide(p);
-}
-function draftedByOthers(p: Player) {
-  store.hide(p);
-}
-function resetAll() {
-  (Object.keys(roster) as SlotId[]).forEach((k) => (roster[k] = null));
-  bench.value = [];
-  store.reset();
-}
-
-const draftedCount = computed(
-  () => Object.values(roster).filter(Boolean).length + bench.value.length
-);
-
-/** ---------- DRAFT BOARD list (round headers) ---------- */
-type Header = { type: "header"; round: number };
-type Row = { type: "player"; data: Player };
-type DisplayItem = Header | Row;
-
-const displayList = computed<DisplayItem[]>(() => {
-  const list: DisplayItem[] = [];
-  const size = Math.max(1, teams.value);
-  const ordered = [...store.visible].sort((a, b) => a.rank - b.rank);
-  let currentRound = 0;
-  for (const p of ordered) {
-    const neededRound = Math.floor((p.rank - 1) / size) + 1;
-    if (neededRound !== currentRound) {
-      currentRound = neededRound;
-      list.push({ type: "header", round: currentRound });
-    }
-    list.push({ type: "player", data: p });
-  }
-  return list;
-});
-
-  <div class="p-4 max-w-5xl mx-auto space-y-6">
-    <!-- TOP ROSTER BAR -->
-    <section class="bg-slate-900 text-slate-100 rounded-lg p-3 shadow">
-      <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold tracking-wide flex items-center gap-2">
-          My Team
-          <span class="text-xs font-medium bg-slate-800 px-2 py-0.5 rounded">
-            {{ draftedCount }} of 15
-          </span>
-        </h2>
-
-        <DraftSlotRandomizer
-          :min="1"
-          :max="teams"
-          label="Randomize Draft Slot"
-          @selected="(n: number) => console.log('Selected slot:', n)"
-        />
-      </div>
-
-      <div class="mt-3 grid grid-cols-2 gap-3">
-        <!-- Starters -->
-        <div class="space-y-2">
-          <!-- QB -->
-          <div
-            :class="[
-              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
-              roster.QB ? roster.QB.position.toLowerCase() : 'bg-slate-100',
-              'text-slate-900',
-            ]"
-          >
-            <span class="text-xs tracking-wide">QB</span>
-            <template v-if="roster.QB">
-              <span class="text-sm truncate max-w-[12rem]">{{
-                roster.QB.name
-              }}</span>
-              <span
-                v-if="roster.QB.team"
-                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
-              >
-                {{ roster.QB.team }}
-              </span>
-            <span v-else class="text-xs text-slate-500">—</span>
-          </div>
-
-          <!-- WR1..WR3 -->
-          <div
-            v-for="id in ['WR1', 'WR2', 'WR3']"
-            :key="id"
-            :class="[
-              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
-              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100',
-              'text-slate-900'
-            ]"
-          >
-            <span class="text-xs tracking-wide">WR</span>
-            <template v-if="(roster as any)[id]">
-              <span class="text-sm truncate max-w-[12rem]">{{
-                (roster as any)[id].name
-              }}</span>
-              <span
-                v-if="(roster as any)[id].team"
-                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
-              >
-                {{ (roster as any)[id].team }}
-              </span>
-            <span v-else class="text-xs text-slate-500">—</span>
-          </div>
-
-          <!-- RB1..RB2 -->
-          <div
-            v-for="id in ['RB1', 'RB2']"
-            :key="id"
-            :class="[
-              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
-              (roster as any)[id] ? (roster as any)[id].position.toLowerCase() : 'bg-slate-100',
-              'text-slate-900'
-            ]"
-          >
-            <span class="text-xs tracking-wide">RB</span>
-            <template v-if="(roster as any)[id]">
-              <span class="text-sm truncate max-w-[12rem]">{{
-                (roster as any)[id].name
-              }}</span>
-              <span
-                v-if="(roster as any)[id].team"
-                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
-              >
-                {{ (roster as any)[id].team }}
-              </span>
-            <span v-else class="text-xs text-slate-500">—</span>
-          </div>
-
-          <!-- TE -->
-          <div
-            :class="[
-              'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between',
-              roster.TE ? roster.TE.position.toLowerCase() : 'bg-slate-100',
-              'text-slate-900',
-            ]"
-          >
-            <span class="text-xs tracking-wide">TE</span>
-            <template v-if="roster.TE">
-              <span class="text-sm truncate max-w-[12rem]">{{
-                roster.TE.name
-              }}</span>
-              <span
-                v-if="roster.TE.team"
-                class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
-              >
-                {{ roster.TE.team }}
-              </span>
-            <span v-else class="text-xs text-slate-500">—</span>
-          </div>
-        </div>
-
-        <!-- Bench -->
-        <div>
-          <div class="text-xs uppercase text-slate-400 mb-1">Bench</div>
-          <div class="grid grid-cols-2 gap-2">
-            <div
-              v-for="p in bench"
-              :key="p.rank"
-              :class="[
-                'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2',
-                p.position.toLowerCase(),
-                'text-slate-900',
-              ]"
-            >
-              <span class="truncate text-sm">{{ p.name }}</span>
-              <span
-                v-if="p.team"
-                class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10 uppercase"
-                >{{ p.team }}</span
-              >
-              <span
-                class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/10"
-                >{{ p.position }}</span
-              >
-            </div>
-
-            <div
-              v-if="bench.length === 0"
-              class="text-xs text-slate-500 col-span-2"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- DRAFT BOARD -->
-    <div class="overflow-x-auto">
-      <table
-        class="min-w-full table-fixed border-collapse border border-slate-300"
-      >
-        <thead class="bg-slate-100 sticky top-0 z-10">
-          <tr class="select-none text-xs">
-            <th
-              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
-            >
-              #
-            </th>
-            <th
-              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
-            >
-              Δ
-            </th>
-            <th
-              class="border-b border-slate-300 px-4 py-2 text-left font-semibold"
-            >
-              Player
-            </th>
-            <th
-              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
-            >
-              Pos
-            </th>
-            <th
-              class="border-b border-slate-300 px-4 py-2 text-center font-semibold"
-            >
-              Team
-            </th>
-            <th class="border-b border-slate-300 px-4 py-2"></th>
-          </tr>
-        </thead>
-
-        <tbody>
-          <template
-            v-for="item in displayList"
-            :key="item.type === 'header' ? `h${item.round}` : item.data.rank"
-          >
-            <!-- Round header -->
-            <tr v-if="item.type === 'header'">
-              <td
-                colspan="6"
-                class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
-              >
-                Round {{ item.round }}
-              </td>
-            </tr>
-
-            <!-- Player row -->
-            <RosterRow
-              v-else
-              :player="item.data"
-              @my-team="draftToMyTeam"
-              @others="draftedByOthers"
-            />
-        </tbody>
-      </table>
+    <div class="bg-white border border-slate-300 rounded-md">
+      <DraftTable
+        :teams="teams"
+        @draft="draftById"
+        @release="draftedByOthers"
+      />
     </div>
   </div>
 
-tbody tr:hover {
-  outline: 2px solid rgba(0, 0, 0, 0.15);
-  outline-offset: -2px;
-}
-.rb {
-  background-color: #c9dcf3;
-}
-.wr {
-  background-color: #a3f5b1;
-}
-.te {
-  background-color: #fdf1b2;
-}
-.qb {
-  background-color: #fca7a3;
-}
-.def {
-  background-color: #d5ba6f;
-}
-.pk,
-.k {
-  background-color: #f5baf4;
-}
-
 === src/components/RosterRow.vue ===
+<!-- src/components/RosterRow.vue -->
 import type { Player } from "@stores/players";
+import { computed } from "vue";
+import FlagIcons from "@/components/FlagIcons.vue";
+import legend from "@/data/legend.json";
+import {
+  ArrowUpRight,
+  AlertTriangle,
+  Flag,
+  Activity,
+  RotateCcw,
+  ThumbsDown,
+  CircleSlash,
+  ThumbsUp,
+  ActivitySquare,
+  Shield,
+} from "lucide-vue-next";
 
 const props = defineProps<{ player: Player }>();
-
 const emit = defineEmits<{
-  (e: "my-team", p: Player): void;
-  (e: "others", p: Player): void;
+  (e: "draft", id: string): void;
+  (e: "release", id: string): void;
 }>();
 
+const ICONS: Record<string, any> = {
+  ArrowUpRight,
+  AlertTriangle,
+  Flag,
+  Activity,
+  RotateCcw,
+  ThumbsDown,
+  CircleSlash,
+  ThumbsUp,
+  ActivitySquare,
+  Shield,
+};
+
+type LegendItem = {
+  key: string;
+  label: string;
+  description: string;
+  icon?: string;
+  badgeClass?: string;
+};
+const legendItems = legend as LegendItem[];
+
+const rowLegendIcons = computed(() =>
+  legendItems.filter((li) => /* your existing filter logic */ true)
+);
+
 function onMyTeam() {
-  emit("my-team", props.player);
+  emit("draft", props.player.id);
 }
 function onDraftedByOthers() {
-  emit("others", props.player);
+  emit("release", props.player.id);
 }
 
-  <!-- Color the ENTIRE ROW by position -->
+// For tooltip when NEW/NR:
+const deltaTooltip = computed(() => {
+  if (props.player.originalRank == null && props.player.rankChange != null) {
+    // e.g., "New entry vs baseline: treated as 161 → 94 (Δ −67)"
+    const effectiveOriginal = props.player.rank - props.player.rankChange; // invert
+    const delta = props.player.rankChange;
+    return `New entry vs baseline: treated as ${effectiveOriginal} → ${
+      props.player.rank
+    } (Δ ${delta > 0 ? "+" : ""}${delta})`;
+  }
+  if (props.player.originalRank == null)
+    return "New to rankings (no original rank)";
+  return "Change vs original rank";
+});
+
   <tr
     class="select-none cursor-default"
-    :class="props.player.position.toLowerCase()"
+    :class="(props.player.position || '').toLowerCase()"
   >
     <!-- Rank -->
     <td
       class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
     >
-      {{ props.player.rank }}
+      {{ Number.isFinite(props.player.rank) ? props.player.rank : "—" }}
     </td>
 
-    <!-- Δ -->
+    <!-- Δ (with NR handling) -->
     <td
       class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
-      :title="
-        props.player.originalRank == null
-          ? 'New to rankings (no original rank)'
-          : 'Change vs original rank'
-      "
+      :title="deltaTooltip"
     >
-      <!-- Not originally ranked -->
-      <span v-if="props.player.originalRank == null" class="delta-nr">NR</span>
+      <!-- NEW / NR badge with delta color underneath -->
+      <template v-if="props.player.originalRank == null">
+        <span
+          v-if="props.player.rankChange != null"
+          :class="props.player.rankChange > 0 ? 'delta-pos' : 'delta-neg'"
+          class="ml-1"
+        >
+          {{
+            props.player.rankChange > 0
+              ? `+${props.player.rankChange}`
+              : props.player.rankChange
+          }}
+        </span>
 
-      <!-- No change -->
-      <span
-        v-else-if="
-          props.player.rankChange == null || props.player.rankChange === 0
-        "
-        class="delta-zero"
-        >–</span
-      >
-
-      <!-- Has change -->
-      <span
-        v-else
-        :class="props.player.rankChange > 0 ? 'delta-pos' : 'delta-neg'"
-      >
-        {{
-          props.player.rankChange > 0
-            ? `+${props.player.rankChange}`
-            : props.player.rankChange
-        }}
-      </span>
+      <template v-else>
+        <span
+          v-if="
+            props.player.rankChange == null || props.player.rankChange === 0
+          "
+          class="delta-zero"
+          >–</span
+        >
+        <span
+          v-else
+          :class="props.player.rankChange > 0 ? 'delta-pos' : 'delta-neg'"
+        >
+          {{
+            props.player.rankChange > 0
+              ? `+${props.player.rankChange}`
+              : props.player.rankChange
+          }}
+        </span>
     </td>
 
-    <!-- Player + buttons -->
+    <!-- Draft buttons -->
     <td
-      class="border border-slate-300 px-2 py-2 text-sm align-middle bg-transparent"
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
     >
-      <div class="flex items-center gap-2 px-2 py-1 text-slate-900">
-        <span class="truncate">{{ props.player.name }}</span>
-        <div class="ml-auto flex gap-2">
-          <button
-            type="button"
-            @click="onMyTeam"
-            class="px-3.5 py-1.5 border rounded-md text-sm font-semibold transition bg-blue-600 text-white border-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            title="Add to My Team"
-          >
-            My Team
-          </button>
-
-          <button
-            type="button"
-            @click="onDraftedByOthers"
-            class="px-3.5 py-1.5 border rounded-md text-sm font-medium transition bg-white text-slate-700 border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-            title="Mark Drafted by Others"
-          >
-            Drafted
-          </button>
-        </div>
+      <div class="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          @click="onMyTeam"
+          class="px-2.5 py-1 border rounded-md text-xs font-semibold transition bg-blue-600 text-white border-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          title="Add to My Team"
+        >
+          My&nbsp;Team
+        </button>
+        <button
+          type="button"
+          @click="onDraftedByOthers"
+          class="px-2.5 py-1 border rounded-md text-xs font-medium transition bg-white text-slate-700 border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          title="Mark Drafted by Others"
+        >
+          Drafted
+        </button>
       </div>
+    </td>
+
+    <!-- Player -->
+    <td
+      class="border border-slate-300 px-2 py-2 text-left align-middle bg-transparent"
+    >
+      <div class="flex items-center gap-2 text-slate-900 w-full">
+        <span class="truncate max-w-[20rem]">{{ props.player.name }}</span>
+        <!-- icons & flags as before -->
+        <FlagIcons :annotations="props.player.annotations" />
+        {{ props.player }}
+      </div>
+    </td>
+
+    <!-- Team -->
+    <td
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent uppercase"
+    >
+      {{ props.player.team ?? "—" }}
+    </td>
+
+    <!-- Bye -->
+    <td
+      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
+    >
+      {{ props.player.bye ?? "—" }}
     </td>
 
     <!-- Pos -->
@@ -543,14 +620,7 @@ function onDraftedByOthers() {
       </span>
     </td>
 
-    <!-- Team -->
-    <td
-      class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent uppercase"
-    >
-      {{ props.player.team ?? "—" }}
-    </td>
-
-    <!-- actions spacer for alignment (kept empty; buttons live in Player cell) -->
+    <!-- Spacer -->
     <td
       class="border border-slate-300 px-2 py-2 text-xs text-center align-middle bg-transparent"
     ></td>
@@ -558,38 +628,44 @@ function onDraftedByOthers() {
 
 .rb {
   background-color: #c9dcf3;
-} /* Light Blue  */
+}
 .wr {
   background-color: #a3f5b1;
-} /* Mint Green  */
+}
 .te {
   background-color: #fdf1b2;
-} /* Pastel Yellow */
+}
 .qb {
   background-color: #fca7a3;
-} /* Salmon Red   */
-.def {
+}
+.dst {
   background-color: #d5ba6f;
-} /* Muted Gold   */
+}
 .pk,
 .k {
   background-color: #f5baf4;
-} /* Pink/Purple */
+}
+
 .delta-pos {
   color: #dc2626;
   font-weight: 600;
-} /* red for slipping */
+} /* slipped (worse)   */
 .delta-neg {
   color: #16a34a;
   font-weight: 600;
-} /* green for improving */
+} /* improved (better) */
 .delta-zero {
   color: #94a3b8;
-} /* gray dash */
+}
 .delta-nr {
   color: #475569;
   font-weight: 600;
-} /* neutral slate */
+}
+.delta-new {
+  color: #0ea5e9; /* cyan-500-ish for NEW */
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 
 === src/components/controls/TeamsPicker.vue ===
 const props = defineProps<{ modelValue: number; options?: number[] }>();
@@ -634,7 +710,7 @@ const teamsRef = ref(props.teams);
 watch(
   () => props.teams,
   (v) => (teamsRef.value = v)
-); // keep in sync
+);
 
 const { displayList } = useDraftBoard(teamsRef);
 
@@ -645,32 +721,42 @@ const { displayList } = useDraftBoard(teamsRef);
       <thead class="bg-slate-100 sticky top-0 z-10 text-xs">
         <tr class="select-none">
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-10 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             #
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-12 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             Δ
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-left text-xs font-semibold"
+            class="w-36 border-b border-slate-300 px-2 py-2 text-center font-semibold"
+          >
+            Draft
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-left font-semibold"
           >
             Player
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
-          >
-            Pos
-          </th>
-          <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-14 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             Team
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-12 border-b border-slate-300 px-2 py-2 text-center font-semibold"
+          >
+            Bye
+          </th>
+          <th
+            class="w-12 border-b border-slate-300 px-2 py-2 text-center font-semibold"
+          >
+            POS
+          </th>
+          <th
+            class="w-10 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           ></th>
         </tr>
       </thead>
@@ -682,7 +768,7 @@ const { displayList } = useDraftBoard(teamsRef);
         >
           <tr v-if="item.type === 'header'">
             <td
-              colspan="6"
+              colspan="8"
               class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
             >
               Round {{ item.round }}
@@ -708,21 +794,16 @@ tbody tr:hover {
 import type { Player } from "@stores/players";
 defineProps<{ bench: Player[] }>();
 
-const posBg: Record<Player["position"], string> = {
-  WR: "bg-pos-wr",
-  RB: "bg-pos-rb",
-  TE: "bg-pos-te",
-  QB: "bg-pos-qb",
-};
+const posBg = { WR: "wr", RB: "rb", TE: "te", QB: "qb", DST: "dst" } as const;
 
-  <div>
-    <div class="text-xs uppercase text-slate-400 mb-1">Bench</div>
+  <div class="mt-3">
+    <div class="text-xs uppercase text-white mb-1">Bench</div>
     <div class="grid grid-cols-2 gap-2">
       <div
         v-for="p in bench"
         :key="p.id"
         :class="[
-          'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2 text-slate-900',
+          'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2 text-white',
           posBg[p.position] || 'bg-slate-100',
         ]"
       >
@@ -753,12 +834,7 @@ import type { SlotId } from "@/composables/useRoster";
 // ✅ one call only
 const { roster } = defineProps<{ roster: Record<SlotId, Player | null> }>();
 
-const posBg: Record<Player["position"], string> = {
-  WR: "bg-pos-wr",
-  RB: "bg-pos-rb",
-  TE: "bg-pos-te",
-  QB: "bg-pos-qb",
-};
+const posBg = { WR: "wr", RB: "rb", TE: "te", QB: "qb", DST: "dst" } as const;
 
 const wrSlots: SlotId[] = ["WR1", "WR2", "WR3"];
 const rbSlots: SlotId[] = ["RB1", "RB2"];
@@ -770,12 +846,14 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
     <div
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        roster.QB ? posBg[roster.QB.position] : 'bg-slate-100',
+        roster.QB ? posBg[roster.QB.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">QB</span>
+      <span class="text-xs tracking-wide text-white">QB</span>
       <template v-if="roster.QB">
-        <span class="text-sm truncate max-w-[12rem]">{{ roster.QB.name }}</span>
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
+          roster.QB.name
+        }}</span>
         <span
           v-if="roster.QB.team"
           class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
@@ -791,12 +869,12 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
       :key="id"
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-100',
+        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">WR</span>
+      <span class="text-xs tracking-wide text-white">WR</span>
       <template v-if="getSlot(id)">
-        <span class="text-sm truncate max-w-[12rem]">{{
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
           getSlot(id)!.name
         }}</span>
       <span v-else class="text-xs text-slate-500">—</span>
@@ -808,12 +886,12 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
       :key="id"
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-100',
+        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">RB</span>
+      <span class="text-xs tracking-wide text-white">RB</span>
       <template v-if="getSlot(id)">
-        <span class="text-sm truncate max-w-[12rem]">{{
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
           getSlot(id)!.name
         }}</span>
       <span v-else class="text-xs text-slate-500">—</span>
@@ -823,48 +901,297 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
     <div
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        roster.TE ? posBg[roster.TE.position] : 'bg-slate-100',
+        roster.TE ? posBg[roster.TE.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">TE</span>
+      <span class="text-xs tracking-wide text-white">TE</span>
       <template v-if="roster.TE">
-        <span class="text-sm truncate max-w-[12rem]">{{ roster.TE.name }}</span>
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
+          roster.TE.name
+        }}</span>
+      <span v-else class="text-xs text-slate-500">—</span>
+    </div>
+
+    <!-- DST -->
+    <div
+      :class="[
+        'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
+        roster.DST ? posBg[roster.DST.position] : 'bg-slate-600',
+      ]"
+    >
+      <span class="text-xs tracking-wide text-white">DST</span>
+      <template v-if="roster.DST">
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
+          roster.DST.name
+        }}</span>
       <span v-else class="text-xs text-slate-500">—</span>
     </div>
   </div>
 
 === src/stores/players.ts ===
+// src/stores/players.ts
 import { defineStore } from "pinia";
-import rawPlayers from "@data/players_8_21_2025_enriched_corrected.json";
+import baselineRaw from "@data/players_8_4_2025_enriched_full_updated.json";
+import currentRaw from "@data/players_8_24_2025_with_DST.json";
+import type { Annotation } from "@/types/annotations";
 
 export interface Player {
-  rank: number;
+  id: string;
+  rank: number; // current rank
   name: string;
-  position: "RB" | "WR" | "TE" | "QB";
-  originalRank: number;
-
-  rankChange: number | null;
+  position: "RB" | "WR" | "TE" | "QB" | "DST";
+  originalRank: number | null; // baseline rank (8/4) or null if NR
+  rankChange: number | null; // current - original (pos=worse, neg=better)
   bye: number | null;
   team: string | null;
+  posRank: string | number | null;
+  annotations: Annotation[];
+  wasUnranked: boolean; // true if no baseline match
+}
+
+type Raw = {
+  id?: string | null;
+  rank?: number | null;
+  name: string;
+  position: string;
+  // possible variants:
+  team?: string | null;
+  teamAbbrev?: string | null;
+  team_abbrev?: string | null;
+  tm?: string | null;
+  franchise?: string | null;
+  bye?: number | string | null;
+  byeWeek?: number | string | null;
+  bye_week?: number | string | null;
+  byeweek?: number | string | null;
+
+  annotations?: Annotation[];
+};
+
+// ---------- helpers ----------
+function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function toAnnotations(v: unknown): Annotation[] {
+  if (!Array.isArray(v)) return [];
+  return (v as any[])
+    .map((x) => (typeof x === "string" ? { kind: x } : x))
+    .filter((a) => a && typeof a.kind === "string" && a.kind.trim());
+}
+
+// Normalize names for matching (handles “Jr.”, “II”, apostrophes, etc.)
+function canonName(name: string) {
+  const suffixes = /\b(jr|sr|ii|iii|iv|v)\b/gi;
+  return name
+    .toLowerCase()
+    .replace(suffixes, "")
+    .replace(/[^a-z0-9 ]+/g, " ") // drop punctuation
+    .replace(/\s+/g, " ") // collapse spaces
+    .trim();
+}
+
+function normPos(pos: string | undefined | null): Player["position"] {
+  const p = (pos || "").toUpperCase().replace(/\s+/g, "");
+  if (p === "RB" || p === "WR" || p === "TE" || p === "QB")
+    return p as Player["position"];
+  // Normalize all defense variants to DST
+  if (p === "DST" || p === "DEF" || p === "D/ST" || p === "D") return "DST";
+  // Safe fallback (most lists assume skill positions if unknown)
+  return "WR";
+}
+
+function safeTeam(t: string | null | undefined) {
+  return (t ?? "").toUpperCase();
+}
+
+function makeId(p: { name: string; position: string; team: string | null }) {
+  return [
+    slugify(p.name),
+    p.position.toLowerCase(),
+    p.team ? p.team.toLowerCase() : "",
+  ]
+    .filter(Boolean)
+    .join("_");
+}
+
+function toIntOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickTeam(p: Raw): string | null {
+  const raw =
+    p.team ??
+    p.teamAbbrev ??
+    (p as any).team_abbrev ??
+    p.tm ??
+    p.franchise ??
+    null;
+  if (!raw) return null;
+  const t = String(raw).trim().toUpperCase();
+  return t.length ? t : null;
+}
+
+function normalizeList(list: Raw[]) {
+  return list.map((p) => {
+    const id =
+      (p.id && String(p.id).trim()) ||
+      makeId({ name: p.name, position: p.position, team: pickTeam(p) });
+
+    const team = pickTeam(p);
+    const bye =
+      toIntOrNull(p.bye) ??
+      toIntOrNull(p.byeWeek) ??
+      toIntOrNull((p as any).bye_week) ??
+      toIntOrNull((p as any).byeweek);
+
+    return {
+      id: String(id),
+      rank: typeof p.rank === "number" ? p.rank : Number.NaN,
+      name: p.name,
+      nameCanon: canonName(p.name),
+      position: normPos(p.position),
+      bye,
+      team,
+      teamNorm: team ?? "", // used only for matching; keep uppercase
+      annotations: toAnnotations(p.annotations),
+    };
+  });
+}
+
+// Merge + de-dupe annotations (baseline first, then current)
+function mergeAnnotations(
+  base: Annotation[] | undefined,
+  curr: Annotation[] | undefined
+): Annotation[] {
+  const byKind = new Map<string, Annotation>();
+  for (const a of base ?? []) byKind.set(a.kind, a);
+  for (const a of curr ?? []) byKind.set(a.kind, a); // current overrides same kind
+  return [...byKind.values()];
 }
 
 export const usePlayersStore = defineStore("players", {
   state: () => {
-    const normalized = (rawPlayers as Player[]).map((p) => ({
-      ...p,
-      rank: Math.trunc(p.rank), // ensure integer
-      originalRank: Math.trunc(p.originalRank),
-      bye: p.bye != null ? Math.trunc(p.bye) : null,
-    }));
+    // 1) normalize both files
+    const baseline = normalizeList(baselineRaw as Raw[]);
+    const current = normalizeList(currentRaw as Raw[]);
 
+    // 2) index baseline three ways
+    const byId = new Map<string, number>(); // id -> baseline rank
+    const byNamePos = new Map<string, number>(); // nameCanon|pos -> baseline rank
+    const byNameOnly = new Map<string, number[]>(); // nameCanon -> [baseline ranks]
+    const baselineByRank = new Map<
+      number,
+      ReturnType<typeof normalizeList>[number]
+    >();
+
+    let baselineMaxRank = 0;
+    for (const b of baseline) {
+      if (Number.isFinite(b.rank)) {
+        const r = b.rank as number;
+        baselineMaxRank = Math.max(baselineMaxRank, r);
+        byId.set(b.id, r);
+        byNamePos.set(`${b.nameCanon}|${b.position}`, r);
+        const arr = byNameOnly.get(b.nameCanon) ?? [];
+        arr.push(r);
+        byNameOnly.set(b.nameCanon, arr);
+        baselineByRank.set(r, b);
+      }
+    }
+
+    const VIRTUAL_NR = baselineMaxRank + 1;
+
+    // 3) match each current player back to baseline, in priority:
+    // id → name+pos → name-only (tie-break: lowest baseline rank)
+    function findOriginalRank(
+      p: ReturnType<typeof normalizeList>[number]
+    ): number | null {
+      const idHit = byId.get(p.id);
+      if (typeof idHit === "number") return idHit;
+
+      const np = byNamePos.get(`${p.nameCanon}|${p.position}`);
+      if (typeof np === "number") return np;
+
+      const list = byNameOnly.get(p.nameCanon);
+      if (list && list.length) return Math.min(...list);
+
+      return null;
+    }
+
+    // 4) enrich current
+    const enriched: Player[] = current.map((p) => {
+      const rank = Number.isFinite(p.rank) ? (p.rank as number) : null;
+      const matchRank = findOriginalRank(p);
+      const wasUnranked = matchRank == null;
+      const effectiveOriginal = wasUnranked ? VIRTUAL_NR : matchRank;
+
+      // pull baseline row (if matched) to borrow team/bye/annotations
+      const baseRow =
+        matchRank != null ? baselineByRank.get(matchRank) : undefined;
+
+      // prefer current team/bye when present; fall back to baseline
+      const team = p.team ?? baseRow?.team ?? null;
+      const bye = p.bye ?? baseRow?.bye ?? null;
+
+      const rankChange =
+        rank != null && effectiveOriginal != null
+          ? rank - effectiveOriginal
+          : null;
+
+      // ✅ merge annotations from baseline + current
+      const annotations = mergeAnnotations(baseRow?.annotations, p.annotations);
+
+      return {
+        id: p.id,
+        rank: rank ?? Number.NaN,
+        name: p.name,
+        position: p.position,
+
+        team,
+        bye,
+
+        originalRank: matchRank,
+        rankChange,
+        annotations,
+        wasUnranked,
+      };
+    });
+
+    // 5) quick sanity in dev: how many didn’t match?
+    if (import.meta.env?.DEV) {
+      const nrCount = enriched.filter((p) => p.wasUnranked).length;
+      // eslint-disable-next-line no-console
+      console.debug(
+        `[players] baseline max=${baselineMaxRank}, NR count=${nrCount}/${enriched.length}`
+      );
+    }
+
+    const map = new Map(enriched.map((p) => [p.id, p]));
     return {
-      original: normalized,
-      visible: [...normalized],
+      original: enriched,
+      visible: [...enriched],
+      byId: map,
     };
   },
+
   actions: {
+    getById(id: string) {
+      return this.byId.get(id);
+    },
     hide(player: Player) {
-      this.visible = this.visible.filter((p) => p !== player);
+      this.visible = this.visible.filter((p) => p.id !== player.id);
+    },
+    hideById(id: string) {
+      this.visible = this.visible.filter((p) => p.id !== id);
+    },
+    unhideById(id: string) {
+      const p = this.byId.get(id);
+      if (p && !this.visible.some((v) => v.id === id)) this.visible.push(p);
     },
     reset() {
       this.visible = [...this.original];
@@ -893,14 +1220,82 @@ declare module "*.vue" {
 }
 
 
-=== src/composables/positionColors.ts ===
-// src/composables/positionColors.ts
-export const posBg = {
-  WR: "bg-pos-wr",
-  RB: "bg-pos-rb",
-  TE: "bg-pos-te",
-  QB: "bg-pos-qb",
-} as const;
+=== src/.DS_Store ===
+   Bud1                                                                     bwspblob   �                                                                                                                                                                           d a t abwspblob   �bplist00�]ShowStatusBar[ShowToolbar[ShowTabView_ContainerShowSidebar\WindowBounds[ShowSidebar		_{{2589, 506}, {920, 436}}	#/;R_klmno�                            �    d a t avSrnlong                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @      �                                        @      �                                          @      �                                          @                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   E                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         DSDB                                 `          �                                         @      �                                          @      �                                          @                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+=== src/composables/useAnnotations.ts ===
+import { computed } from "vue";
+import { usePlayersStore } from "@stores/players";
+import type { Annotation } from "@/types/annotations";
+// import as many update files as you want:
+import updatesA from "@data/players_8_4_2025_enriched_full_ready.json";
+import updatesB from "@data/players_8_21_2025_enriched_corrected.json";
+
+type UpdateRow = {
+  name: string;
+  position: string;
+  team?: string | null;
+  annotations?: Annotation[]; // optional: many inputs won't have this yet
+};
+
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const keyFrom = (n: string, pos: string, team?: string | null) =>
+  [normalize(n), pos.toLowerCase(), team ? team.toLowerCase() : ""].join("|");
+
+export function useAnnotations() {
+  const store = usePlayersStore();
+
+  // Build a quick lookup by flexible keys
+  const baseByKey = computed(() => {
+    const map = new Map<string, string>(); // key -> playerId
+    for (const p of store.original) {
+      // prefer team when present
+      map.set(keyFrom(p.name, p.position, p.team), p.id);
+      // fallback key without team (many rows have null team in 8/21/25 file)
+      map.set(keyFrom(p.name, p.position, null), p.id);
+    }
+    return map;
+  });
+
+  // Flatten all update sources
+  const allUpdates: UpdateRow[] = [
+    ...(updatesA as any[]),
+    ...(updatesB as any[]),
+  ];
+
+  // annotationsById: Map<playerId, Annotation[]>
+  const annotationsById = computed(() => {
+    const out = new Map<string, Annotation[]>();
+    for (const row of allUpdates) {
+      const k = keyFrom(row.name, row.position, row.team ?? null);
+      const id = baseByKey.value.get(k);
+      if (!id) {
+        // Option A: quietly skip or log; Option B: insert as new "NR" row:
+        // (uncomment to insert)
+        // const newId = `${normalize(row.name)}_${row.position.toLowerCase()}_${row.team ?? ""}`.replace(/_$/, "");
+        // store.original.push({ id: newId, rank: 9999, name: row.name, position: row.position as any, originalRank: null, rankChange: null, bye: null, team: row.team ?? null });
+        // out.set(newId, row.annotations);
+        continue;
+      }
+      const anns = Array.isArray(row.annotations) ? row.annotations : [];
+      if (anns.length === 0) continue; // nothing to render yet
+      out.set(id, [...(out.get(id) ?? []), ...anns]);
+    }
+    return out;
+  });
+
+  function getAnnotations(playerId: string): Annotation[] {
+    const p = store.byId.get(playerId);
+    const fromPlayer = Array.isArray(p?.annotations) ? p!.annotations : [];
+    const external = annotationsById.value.get(playerId) ?? [];
+    // Filter out placeholder/invalid items
+    return [...fromPlayer, ...external].filter(
+      (a) => a && typeof a.kind === "string" && a.kind.trim()
+    );
+  }
+
+  return { getAnnotations, annotationsById };
+}
 
 
 === src/composables/useDraftBoard.ts ===
@@ -938,13 +1333,22 @@ export function useDraftBoard(teams: Ref<number>) {
 import { reactive, ref, computed } from "vue";
 import { usePlayersStore, type Player } from "@stores/players";
 
-export type SlotId = "QB" | "WR1" | "WR2" | "WR3" | "RB1" | "RB2" | "TE";
+export type SlotId =
+  | "QB"
+  | "WR1"
+  | "WR2"
+  | "WR3"
+  | "RB1"
+  | "RB2"
+  | "TE"
+  | "DST";
 
 const targetsByPos: Record<Player["position"], SlotId[]> = {
   WR: ["WR1", "WR2", "WR3"],
   RB: ["RB1", "RB2"],
   TE: ["TE"],
   QB: ["QB"],
+  DST: ["DST"],
 };
 
 export function useRoster() {
@@ -958,13 +1362,16 @@ export function useRoster() {
     RB1: null,
     RB2: null,
     TE: null,
+    DST: null,
   });
   const bench = ref<Player[]>([]);
 
   function draftById(id: string) {
-    const p = store.byId(id);
+    const p = store.getById(id);
     if (!p) return;
-    for (const slot of targetsByPos[p.position]) {
+    if (!p) return;
+    const positions = targetsByPos[p.position as keyof typeof targetsByPos];
+    for (const slot of positions) {
       if (!roster[slot]) {
         roster[slot] = p;
         store.hideById(p.id);
@@ -1001,6 +1408,9 @@ export function useRoster() {
   return { roster, bench, draftedCount, draftById, releaseById, resetAll };
 }
 
+
+=== src/data/.DS_Store ===
+   Bud1                                                                        e r s _ 8 _                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @      �                                        @      �                                          @      �                                          @                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 # p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   # p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l . j s o nptbNustr   # p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l . j s o n   ) p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ r e a d y . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   ) p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ r e a d y . j s o nptbNustr   ) p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ r e a d y . j s o n   + p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ u p d a t e d . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   + p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ u p d a t e d . j s o nptbNustr   + p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ u p d a t e d . j s o n   4 p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ w i t h _ a n n o t a t i o n s . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   4 p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ w i t h _ a n n o t a t i o n s . j s o nptbNustr   4 p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ w i t h _ a n n o t a t i o n s . j s o n    p l a y e r s _ w i t h _ a n n o t a t i o n s . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /    p l a y e r s _ w i t h _ a n n o t a t i o n s . j s o nptbNustr    p l a y e r s _ w i t h _ a n n o t a t i o n s . j s o n   & p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d - 2 . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   & p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d - 2 . j s o nptbNustr   & p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d - 2 . j s o n   $ p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   $ p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d . j s o nptbNustr   $ p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d . j s o n                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           E                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         DSDB                                 `          �                          (      0          @      �                                          @      �                                          @         9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /   4 p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ w i t h _ a n n o t a t i o n s . j s o nptbNustr   4 p l a y e r s _ 8 _ 4 _ 2 0 2 5 _ e n r i c h e d _ f u l l _ w i t h _ a n n o t a t i o n s . j s o n    p l a y e r s _ w i t h _ a n n o t a t i o n s . j s o nptbLustr   9 U s e r s / r o b e r t h o g a n / G i t h u b / p e r s o n a l / m y - d r a f t - t o o l / s r c / d a t a /    p l a y e r s _ w i t h _ a n n o t a t i o n s . j s o nptbNustr    p l a y e r s _ w i t h _ a n n o t a t i o n s . j s o n   & p l a y e r s _ w i t h _ a n n o t a t i o n s _ s o r t e d - 2 . j s o nptbLustr   9 U s e r s / r o b
 
 === src/data/ffc-files.txt ===
 Rank	Name	Team	Pos	Bye
@@ -1134,6 +1544,80 @@ Rank	Name	Team	Pos	Bye
 128.	Christian Kirk	HOU	WR	6
 129.	Houston Defense	HOU	DEF	6
 130.	Drake Maye	NE	QB	14
+
+=== src/data/legend.json ===
+[
+  {
+    "key": "oline_improved",
+    "label": "Improved offensive line",
+    "description": "Offensive line has improved (personnel, coaching, or continuity). Expect better pockets and rushing efficiency.",
+    "icon": "ArrowUpRight",
+    "badgeClass": "bg-emerald-100 text-emerald-800"
+  },
+  {
+    "key": "oline_concern",
+    "label": "Offensive lines we are worried about",
+    "description": "Offensive line with concerns (injuries, turnover, poor grades). Expect more QB pressure and weaker run game.",
+    "icon": "AlertTriangle",
+    "badgeClass": "bg-rose-100 text-rose-800"
+  },
+  {
+    "key": "flag",
+    "label": "Flag player",
+    "description": "Plant your flag. You're above market; willing to draft earlier than consensus.",
+    "icon": "Flag",
+    "badgeClass": "bg-indigo-100 text-indigo-800"
+  },
+  {
+    "key": "frag",
+    "label": "Frag player",
+    "description": "Player with elevated availability risk (injury, suspension, or age). Requires depth and contingency plans.",
+    "icon": "Activity",
+    "badgeClass": "bg-amber-100 text-amber-800"
+  },
+  {
+    "key": "post_hype",
+    "label": "Post-hype sleeper",
+    "description": "Once hyped but now discounted. Talent and opportunity path remain intact.",
+    "icon": "RotateCcw",
+    "badgeClass": "bg-sky-100 text-sky-800"
+  },
+  {
+    "key": "film_zero",
+    "label": "Film room zeros",
+    "description": "Tape reveals concerning traits or usage (can't separate, poor vision, processing). Priced accordingly.",
+    "icon": "ThumbsDown",
+    "badgeClass": "bg-slate-200 text-slate-800"
+  },
+  {
+    "key": "acid_reflux",
+    "label": "Acid reflux all stars",
+    "description": "Players who may produce, but you hate clicking draft. Risk factors: age, usage, volatility.",
+    "icon": "CircleSlash",
+    "badgeClass": "bg-orange-100 text-orange-800"
+  },
+  {
+    "key": "film_hero",
+    "label": "Film room heroes",
+    "description": "Tape darlings with traits and roles that translate. Willing to draft aggressively.",
+    "icon": "ThumbsUp",
+    "badgeClass": "bg-lime-100 text-lime-800"
+  },
+  {
+    "key": "swing",
+    "label": "Swing players",
+    "description": "Wide outcome range; high spike weeks and low floors. Great for best ball formats.",
+    "icon": "ActivitySquare",
+    "badgeClass": "bg-fuchsia-100 text-fuchsia-800"
+  },
+  {
+    "key": "safe",
+    "label": "Safe players",
+    "description": "Stable role and volume; high floor with lower variance. Ideal for managed leagues.",
+    "icon": "Shield",
+    "badgeClass": "bg-teal-100 text-teal-800"
+  }
+]
 
 === src/data/players_8_12_2025_enriched_full.json ===
 [
@@ -6720,7 +7204,1772 @@ Rank	Name	Team	Pos	Bye
   }
 ]
 
-=== src/data/players_8_4_2025_enriched_full.json ===
+=== src/data/players_8_24_2025_with_DST.json ===
+[
+  {
+    "rank": 1,
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "positionRank": 1,
+    "originalRank": 1,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 2,
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "positionRank": 2,
+    "originalRank": 2,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 3,
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "positionRank": 3,
+    "originalRank": 3,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 4,
+    "name": "Ja'Marr Chase",
+    "position": "WR",
+    "positionRank": 1,
+    "originalRank": 4,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 5,
+    "name": "Justin Jefferson",
+    "position": "WR",
+    "positionRank": 2,
+    "originalRank": 5,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 6,
+    "name": "CeeDee Lamb",
+    "position": "WR",
+    "positionRank": 3,
+    "originalRank": 6,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 7,
+    "name": "Derrick Henry",
+    "position": "RB",
+    "positionRank": 4,
+    "originalRank": 7,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 8,
+    "name": "Christian McCaffrey",
+    "position": "RB",
+    "positionRank": 5,
+    "originalRank": 8,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 9,
+    "name": "Puka Nacua",
+    "position": "WR",
+    "positionRank": 4,
+    "originalRank": 9,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 10,
+    "name": "Nico Collins",
+    "position": "WR",
+    "positionRank": 5,
+    "originalRank": 10,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 11,
+    "name": "Amon-Ra St. Brown",
+    "position": "WR",
+    "positionRank": 6,
+    "originalRank": 11,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 12,
+    "name": "Malik Nabers",
+    "position": "WR",
+    "positionRank": 7,
+    "originalRank": 12,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 13,
+    "name": "Josh Jacobs",
+    "position": "RB",
+    "positionRank": 6,
+    "originalRank": 13,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 14,
+    "name": "Jonathan Taylor",
+    "position": "RB",
+    "positionRank": 7,
+    "originalRank": 14,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 15,
+    "name": "A.J. Brown",
+    "position": "WR",
+    "positionRank": 8,
+    "originalRank": 15,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 16,
+    "name": "Brian Thomas",
+    "position": "WR",
+    "positionRank": 9,
+    "originalRank": 16,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 17,
+    "name": "Breece Hall",
+    "position": "RB",
+    "positionRank": 8,
+    "originalRank": 17,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 18,
+    "name": "Ashton Jeanty",
+    "position": "RB",
+    "positionRank": 9,
+    "originalRank": 18,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 19,
+    "name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "positionRank": 10,
+    "originalRank": 19,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 20,
+    "name": "Kyren Williams",
+    "position": "RB",
+    "positionRank": 10,
+    "originalRank": 20,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 21,
+    "name": "Chase Brown",
+    "position": "RB",
+    "positionRank": 11,
+    "originalRank": 21,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 22,
+    "name": "De'Von Achane",
+    "position": "RB",
+    "positionRank": 12,
+    "originalRank": 22,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 23,
+    "name": "Alvin Kamara",
+    "position": "RB",
+    "positionRank": 13,
+    "originalRank": 23,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 24,
+    "name": "Tyreek Hill",
+    "position": "WR",
+    "positionRank": 11,
+    "originalRank": 24,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 25,
+    "name": "Drake London",
+    "position": "WR",
+    "positionRank": 12,
+    "originalRank": 25,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 26,
+    "name": "Ladd McConkey",
+    "position": "WR",
+    "positionRank": 13,
+    "originalRank": 26,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 27,
+    "name": "James Cook",
+    "position": "RB",
+    "positionRank": 14,
+    "originalRank": 27,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 28,
+    "name": "Brock Bowers",
+    "position": "TE",
+    "positionRank": 1,
+    "originalRank": 28,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 29,
+    "name": "Trey McBride",
+    "position": "TE",
+    "positionRank": 2,
+    "originalRank": 29,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 30,
+    "name": "Chuba Hubbard",
+    "position": "RB",
+    "positionRank": 15,
+    "originalRank": 30,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 31,
+    "name": "Bucky Irving",
+    "position": "RB",
+    "positionRank": 16,
+    "originalRank": 31,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 32,
+    "name": "Kenneth Walker",
+    "position": "RB",
+    "positionRank": 17,
+    "originalRank": 32,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 33,
+    "name": "D.J. Moore",
+    "position": "WR",
+    "positionRank": 14,
+    "originalRank": 35,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 34,
+    "name": "George Kittle",
+    "position": "TE",
+    "positionRank": 3,
+    "originalRank": 36,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 35,
+    "name": "Garrett Wilson",
+    "position": "WR",
+    "positionRank": 15,
+    "originalRank": 37,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 36,
+    "name": "Lamar Jackson",
+    "position": "QB",
+    "positionRank": 1,
+    "originalRank": 38,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 37,
+    "name": "Josh Allen",
+    "position": "QB",
+    "positionRank": 2,
+    "originalRank": 39,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 38,
+    "name": "Tee Higgins",
+    "position": "WR",
+    "positionRank": 16,
+    "originalRank": 40,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 39,
+    "name": "Davante Adams",
+    "position": "WR",
+    "positionRank": 17,
+    "originalRank": 41,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 40,
+    "name": "Omarion Hampton",
+    "position": "RB",
+    "positionRank": 18,
+    "originalRank": 50,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 41,
+    "name": "Terry McLaurin",
+    "position": "WR",
+    "positionRank": 18,
+    "originalRank": 34,
+    "rankChange": 7,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 42,
+    "name": "Zay Flowers",
+    "position": "WR",
+    "positionRank": 19,
+    "originalRank": 42,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 43,
+    "name": "Marvin Harrison",
+    "position": "WR",
+    "positionRank": 20,
+    "originalRank": 43,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 44,
+    "name": "DK Metcalf",
+    "position": "WR",
+    "positionRank": 21,
+    "originalRank": 45,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 45,
+    "name": "James Conner",
+    "position": "RB",
+    "positionRank": 19,
+    "originalRank": 46,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 46,
+    "name": "DeVonta Smith",
+    "position": "WR",
+    "positionRank": 22,
+    "originalRank": 47,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 47,
+    "name": "Joe Burrow",
+    "position": "QB",
+    "positionRank": 3,
+    "originalRank": 48,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 48,
+    "name": "Jayden Daniels",
+    "position": "QB",
+    "positionRank": 4,
+    "originalRank": 49,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 49,
+    "name": "Mark Andrews",
+    "position": "TE",
+    "positionRank": 4,
+    "originalRank": 51,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 50,
+    "name": "Sam LaPorta",
+    "position": "TE",
+    "positionRank": 5,
+    "originalRank": 52,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 51,
+    "name": "T.J. Hockenson",
+    "position": "TE",
+    "positionRank": 6,
+    "originalRank": 53,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 52,
+    "name": "Travis Kelce",
+    "position": "TE",
+    "positionRank": 7,
+    "originalRank": 54,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 53,
+    "name": "Courtland Sutton",
+    "position": "WR",
+    "positionRank": 23,
+    "originalRank": 55,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 54,
+    "name": "Mike Evans",
+    "position": "WR",
+    "positionRank": 24,
+    "originalRank": 56,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 55,
+    "name": "Jameson Williams",
+    "position": "WR",
+    "positionRank": 25,
+    "originalRank": 58,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 56,
+    "name": "Ricky Pearsall",
+    "position": "WR",
+    "positionRank": 26,
+    "originalRank": 59,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 57,
+    "name": "George Pickens",
+    "position": "WR",
+    "positionRank": 27,
+    "originalRank": 60,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 58,
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "positionRank": 5,
+    "originalRank": 61,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 59,
+    "name": "Jalen Hurts",
+    "position": "QB",
+    "positionRank": 6,
+    "originalRank": 62,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 60,
+    "name": "Tyrone Tracy",
+    "position": "RB",
+    "positionRank": 20,
+    "originalRank": 63,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 61,
+    "name": "Aaron Jones",
+    "position": "RB",
+    "positionRank": 21,
+    "originalRank": 64,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 62,
+    "name": "David Montgomery",
+    "position": "RB",
+    "positionRank": 22,
+    "originalRank": 65,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 63,
+    "name": "Tony Pollard",
+    "position": "RB",
+    "positionRank": 23,
+    "originalRank": 66,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 64,
+    "name": "D'Andre Swift",
+    "position": "RB",
+    "positionRank": 24,
+    "originalRank": 67,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 65,
+    "name": "Chris Olave",
+    "position": "WR",
+    "positionRank": 28,
+    "originalRank": 68,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 66,
+    "name": "Jaylen Warren",
+    "position": "RB",
+    "positionRank": 25,
+    "originalRank": 69,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 67,
+    "name": "Jerry Jeudy",
+    "position": "WR",
+    "positionRank": 29,
+    "originalRank": 70,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 68,
+    "name": "Jaylen Waddle",
+    "position": "WR",
+    "positionRank": 30,
+    "originalRank": 71,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 69,
+    "name": "Calvin Ridley",
+    "position": "WR",
+    "positionRank": 31,
+    "originalRank": 72,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 70,
+    "name": "Tetairoa McMillan",
+    "position": "WR",
+    "positionRank": 32,
+    "originalRank": 98,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 71,
+    "name": "Rashee Rice",
+    "position": "WR",
+    "positionRank": 33,
+    "originalRank": 44,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 72,
+    "name": "Jordan Addison",
+    "position": "WR",
+    "positionRank": 34,
+    "originalRank": 57,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 73,
+    "name": "TreVeyon Henderson",
+    "position": "RB",
+    "positionRank": 26,
+    "originalRank": 92,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 74,
+    "name": "Joe Mixon",
+    "position": "RB",
+    "positionRank": 27,
+    "originalRank": 33,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 75,
+    "name": "Isiah Pacheco",
+    "position": "RB",
+    "positionRank": 28,
+    "originalRank": 74,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 76,
+    "name": "Travis Etienne",
+    "position": "RB",
+    "positionRank": 29,
+    "originalRank": 75,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 77,
+    "name": "J.K. Dobbins",
+    "position": "RB",
+    "positionRank": 30,
+    "originalRank": 76,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 78,
+    "name": "Rome Odunze",
+    "position": "WR",
+    "positionRank": 35,
+    "originalRank": 78,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 79,
+    "name": "Rachaad White",
+    "position": "RB",
+    "positionRank": 31,
+    "originalRank": 79,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 80,
+    "name": "Deebo Samuel",
+    "position": "WR",
+    "positionRank": 36,
+    "originalRank": 80,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 81,
+    "name": "Jakobi Meyers",
+    "position": "WR",
+    "positionRank": 37,
+    "originalRank": 81,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 82,
+    "name": "Travis Hunter",
+    "position": "WR",
+    "positionRank": 38,
+    "originalRank": 83,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 83,
+    "name": "Chris Godwin",
+    "position": "WR",
+    "positionRank": 39,
+    "originalRank": 73,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 84,
+    "name": "Xavier Worthy",
+    "position": "WR",
+    "positionRank": 40,
+    "originalRank": 84,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 85,
+    "name": "Jauan Jennings",
+    "position": "WR",
+    "positionRank": 41,
+    "originalRank": 77,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 86,
+    "name": "Stefon Diggs",
+    "position": "WR",
+    "positionRank": 42,
+    "originalRank": 85,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 87,
+    "name": "Emeka Egbuka",
+    "position": "WR",
+    "positionRank": 43,
+    "originalRank": 116,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 88,
+    "name": "Jayden Reed",
+    "position": "WR",
+    "positionRank": 44,
+    "originalRank": 82,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 89,
+    "name": "Cooper Kupp",
+    "position": "WR",
+    "positionRank": 45,
+    "originalRank": 86,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 90,
+    "name": "Austin Ekeler",
+    "position": "RB",
+    "positionRank": 32,
+    "originalRank": 88,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 91,
+    "name": "Tank Bigsby",
+    "position": "RB",
+    "positionRank": 33,
+    "originalRank": 89,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 92,
+    "name": "Kaleb Johnson",
+    "position": "RB",
+    "positionRank": 34,
+    "originalRank": 90,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 93,
+    "name": "R.J. Harvey",
+    "position": "RB",
+    "positionRank": 35,
+    "originalRank": 93,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "originalRank": null,
+    "team": null,
+    "bye": null,
+    "name": "Jacory Croskey-Merritt",
+    "position": "RB",
+    "rank": 94,
+    "rankChange": null,
+    "positionRank": 36
+  },
+  {
+    "rank": 95,
+    "name": "Jerome Ford",
+    "position": "RB",
+    "positionRank": 37,
+    "originalRank": 94,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 96,
+    "name": "Michael Pittman",
+    "position": "WR",
+    "positionRank": 46,
+    "originalRank": 95,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 97,
+    "name": "Khalil Shakir",
+    "position": "WR",
+    "positionRank": 47,
+    "originalRank": 96,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 98,
+    "name": "Zach Charbonnet",
+    "position": "RB",
+    "positionRank": 38,
+    "originalRank": 97,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 99,
+    "name": "Keenan Allen",
+    "position": "WR",
+    "positionRank": 48,
+    "originalRank": 99,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 100,
+    "name": "Josh Downs",
+    "position": "WR",
+    "positionRank": 49,
+    "originalRank": 99,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 101,
+    "name": "Justin Herbert",
+    "position": "QB",
+    "positionRank": 7,
+    "originalRank": 101,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 102,
+    "name": "Jared Goff",
+    "position": "QB",
+    "positionRank": 8,
+    "originalRank": 102,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 103,
+    "name": "Rhamondre Stevenson",
+    "position": "RB",
+    "positionRank": 39,
+    "originalRank": 103,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 104,
+    "name": "Jordan Mason",
+    "position": "RB",
+    "positionRank": 40,
+    "originalRank": 104,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 105,
+    "name": "Brandon Aiyuk",
+    "position": "WR",
+    "positionRank": 50,
+    "originalRank": 105,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 106,
+    "name": "Javonte Williams",
+    "position": "RB",
+    "positionRank": 41,
+    "originalRank": 107,
+    "rankChange": -1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 107,
+    "name": "Brian Robinson",
+    "position": "RB",
+    "positionRank": 42,
+    "originalRank": 91,
+    "rankChange": 14,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 108,
+    "name": "Ray Davis",
+    "position": "RB",
+    "positionRank": 43,
+    "originalRank": 109,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 109,
+    "name": "Colston Loveland",
+    "position": "TE",
+    "positionRank": 8,
+    "originalRank": 110,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 110,
+    "name": "Tyler Warren",
+    "position": "TE",
+    "positionRank": 9,
+    "originalRank": 111,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 111,
+    "name": "Dalton Kincaid",
+    "position": "TE",
+    "positionRank": 10,
+    "originalRank": 112,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 112,
+    "name": "Tucker Kraft",
+    "position": "TE",
+    "positionRank": 11,
+    "originalRank": 113,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 113,
+    "name": "Matthew Golden",
+    "position": "WR",
+    "positionRank": 51,
+    "originalRank": 114,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 114,
+    "name": "Luther Burden",
+    "position": "WR",
+    "positionRank": 52,
+    "originalRank": 115,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 115,
+    "name": "Jayden Higgins",
+    "position": "WR",
+    "positionRank": 53,
+    "originalRank": 117,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 116,
+    "name": "C.J. Stroud",
+    "position": "QB",
+    "positionRank": 9,
+    "originalRank": 118,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 117,
+    "name": "Brock Purdy",
+    "position": "QB",
+    "positionRank": 10,
+    "originalRank": 119,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 118,
+    "name": "Jordan Love",
+    "position": "QB",
+    "positionRank": 11,
+    "originalRank": 120,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 119,
+    "name": "Baker Mayfield",
+    "position": "QB",
+    "positionRank": 12,
+    "originalRank": 121,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 120,
+    "name": "Tyler Allgeier",
+    "position": "RB",
+    "positionRank": 44,
+    "originalRank": 123,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 121,
+    "name": "Cam Skattebo",
+    "position": "RB",
+    "positionRank": 45,
+    "originalRank": 124,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 122,
+    "name": "Najee Harris",
+    "position": "RB",
+    "positionRank": 46,
+    "originalRank": 100,
+    "rankChange": 23,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 123,
+    "name": "Blake Corum",
+    "position": "RB",
+    "positionRank": 47,
+    "originalRank": 125,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 124,
+    "name": "Rico Dowdle",
+    "position": "RB",
+    "positionRank": 48,
+    "originalRank": 126,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 125,
+    "name": "Christian Kirk",
+    "position": "WR",
+    "positionRank": 54,
+    "originalRank": 127,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 126,
+    "name": "Keon Coleman",
+    "position": "WR",
+    "positionRank": 55,
+    "originalRank": 128,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 127,
+    "name": "Darnell Mooney",
+    "position": "WR",
+    "positionRank": 56,
+    "originalRank": 129,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 128,
+    "name": "Demario Douglas",
+    "position": "WR",
+    "positionRank": 57,
+    "originalRank": 191,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 129,
+    "name": "Adam Thielen",
+    "position": "WR",
+    "positionRank": 58,
+    "originalRank": 130,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 130,
+    "name": "Romeo Doubs",
+    "position": "WR",
+    "positionRank": 59,
+    "originalRank": 131,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 131,
+    "name": "Evan Engram",
+    "position": "TE",
+    "positionRank": 12,
+    "originalRank": 132,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 132,
+    "name": "Dallas Goedert",
+    "position": "TE",
+    "positionRank": 13,
+    "originalRank": 133,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 133,
+    "name": "David Njoku",
+    "position": "TE",
+    "positionRank": 14,
+    "originalRank": 134,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 134,
+    "name": "Jonnu Smith",
+    "position": "TE",
+    "positionRank": 15,
+    "originalRank": 87,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 135,
+    "name": "Trey Benson",
+    "position": "RB",
+    "positionRank": 49,
+    "originalRank": 135,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 136,
+    "name": "Dylan Sampson",
+    "position": "RB",
+    "positionRank": 50,
+    "originalRank": 137,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 137,
+    "name": "Tyjae Spears",
+    "position": "RB",
+    "positionRank": 51,
+    "originalRank": 106,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 138,
+    "name": "Keaton Mitchell",
+    "position": "RB",
+    "positionRank": 52,
+    "originalRank": 138,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 139,
+    "name": "Braelon Allen",
+    "position": "RB",
+    "positionRank": 53,
+    "originalRank": 139,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 140,
+    "name": "Rashid Shaheed",
+    "position": "WR",
+    "positionRank": 60,
+    "originalRank": 140,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 141,
+    "name": "Cedric Tillman",
+    "position": "WR",
+    "positionRank": 61,
+    "originalRank": 141,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 142,
+    "name": "Wan'Dale Robinson",
+    "position": "WR",
+    "positionRank": 62,
+    "originalRank": 143,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 143,
+    "name": "Kyler Murray",
+    "position": "QB",
+    "positionRank": 13,
+    "originalRank": 144,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 144,
+    "name": "Drake Maye",
+    "position": "QB",
+    "positionRank": 14,
+    "originalRank": 145,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 145,
+    "name": "Caleb Williams",
+    "position": "QB",
+    "positionRank": 15,
+    "originalRank": 146,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 146,
+    "name": "Jaylin Noel",
+    "position": "WR",
+    "positionRank": 63,
+    "originalRank": 147,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 147,
+    "name": "Xavier Legette",
+    "position": "WR",
+    "positionRank": 64,
+    "originalRank": 148,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 148,
+    "name": "Rashod Bateman",
+    "position": "WR",
+    "positionRank": 65,
+    "originalRank": 149,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 149,
+    "name": "Dontayvion Wicks",
+    "position": "WR",
+    "positionRank": 66,
+    "originalRank": 150,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 150,
+    "name": "Alec Pierce",
+    "position": "WR",
+    "positionRank": 67,
+    "originalRank": 151,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 151,
+    "name": "Kendre Miller",
+    "position": "RB",
+    "positionRank": 54,
+    "originalRank": 152,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 152,
+    "name": "Woody Marks",
+    "position": "RB",
+    "positionRank": 55,
+    "originalRank": 153,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 153,
+    "name": "Jaylen Wright",
+    "position": "RB",
+    "positionRank": 56,
+    "originalRank": 108,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Ollie Gordon",
+    "position": "RB",
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null,
+    "rank": 154,
+    "positionRank": 57
+  },
+  {
+    "rank": 155,
+    "name": "Jaydon Blue",
+    "position": "RB",
+    "positionRank": 58,
+    "originalRank": 158,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 156,
+    "name": "Isaac Guerendo",
+    "position": "RB",
+    "positionRank": 59,
+    "originalRank": 136,
+    "rankChange": 0,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 157,
+    "name": "Elijah Mitchell",
+    "position": "RB",
+    "positionRank": 60,
+    "originalRank": 154,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 158,
+    "name": "Quinshon Judkins",
+    "position": "RB",
+    "positionRank": 61,
+    "originalRank": 122,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 159,
+    "name": "Trevor Etienne",
+    "position": "RB",
+    "positionRank": 62,
+    "originalRank": 156,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "rank": 160,
+    "name": "Will Shipley",
+    "position": "RB",
+    "positionRank": 63,
+    "originalRank": 157,
+    "rankChange": 1,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Broncos",
+    "rank": 161,
+    "position": "DST",
+    "positionRank": 1,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Texans",
+    "rank": 162,
+    "position": "DST",
+    "positionRank": 11,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Ravens",
+    "rank": 163,
+    "position": "DST",
+    "positionRank": 3,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Lions",
+    "rank": 164,
+    "position": "DST",
+    "positionRank": 16,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Eagles",
+    "rank": 165,
+    "position": "DST",
+    "positionRank": 9,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Vikings",
+    "rank": 166,
+    "position": "DST",
+    "positionRank": 19,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Steelers",
+    "rank": 167,
+    "position": "DST",
+    "positionRank": 8,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Chargers",
+    "rank": 168,
+    "position": "DST",
+    "positionRank": 12,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Seahawks",
+    "rank": 169,
+    "position": "DST",
+    "positionRank": 15,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Packers",
+    "rank": 170,
+    "position": "DST",
+    "positionRank": 15,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Bills",
+    "rank": 171,
+    "position": "DST",
+    "positionRank": 7,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Chiefs",
+    "rank": 172,
+    "position": "DST",
+    "positionRank": 5,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Cardinals",
+    "rank": 173,
+    "position": "DST",
+    "positionRank": 5,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Buccaneers",
+    "rank": 174,
+    "position": "DST",
+    "positionRank": 5,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Rams",
+    "rank": 175,
+    "position": "DST",
+    "positionRank": 5,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  },
+  {
+    "name": "Jets",
+    "rank": 176,
+    "position": "DST",
+    "positionRank": 2,
+    "originalRank": null,
+    "rankChange": null,
+    "bye": null,
+    "team": null
+  }
+]
+
+
+=== src/data/players_8_4_2025_enriched_full_updated.json ===
 [
   {
     "rank": 1,
@@ -6731,7 +8980,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PHI",
     "originalRank": 1,
     "previousRank": 1,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "saquon-barkley_rb_phi"
   },
   {
     "rank": 2,
@@ -6742,7 +8993,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ATL",
     "originalRank": 2,
     "previousRank": 2,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "bijan-robinson_rb_atl"
   },
   {
     "rank": 3,
@@ -6753,7 +9006,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DET",
     "originalRank": 3,
     "previousRank": 3,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "jahmyr-gibbs_rb_det"
   },
   {
     "rank": 4,
@@ -6764,7 +9019,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CIN",
     "originalRank": 4,
     "previousRank": 4,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "ja-marr-chase_wr_cin"
   },
   {
     "rank": 5,
@@ -6775,7 +9032,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIN",
     "originalRank": 5,
     "previousRank": 5,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": ["improved o-line"],
+    "id": "justin-jefferson_wr_min"
   },
   {
     "rank": 6,
@@ -6786,7 +9045,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DAL",
     "originalRank": 6,
     "previousRank": 6,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "ceedee-lamb_wr_dal"
   },
   {
     "rank": 7,
@@ -6797,7 +9058,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BAL",
     "originalRank": 7,
     "previousRank": 7,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "derrick-henry_rb_bal"
   },
   {
     "rank": 8,
@@ -6808,7 +9071,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SF",
     "originalRank": 8,
     "previousRank": 8,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "christian-mccaffrey_rb_sf"
   },
   {
     "rank": 9,
@@ -6819,7 +9084,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LAR",
     "originalRank": 9,
     "previousRank": 9,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "puka-nacua_wr_lar"
   },
   {
     "rank": 10,
@@ -6830,7 +9097,9 @@ Rank	Name	Team	Pos	Bye
     "team": "HOU",
     "originalRank": 10,
     "previousRank": 10,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "nico-collins_wr_hou"
   },
   {
     "rank": 11,
@@ -6841,7 +9110,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DET",
     "originalRank": 11,
     "previousRank": 11,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "amon-ra-st-brown_wr_det"
   },
   {
     "rank": 12,
@@ -6852,7 +9123,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NYG",
     "originalRank": 12,
     "previousRank": 12,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "malik-nabers_wr_nyg"
   },
   {
     "rank": 13,
@@ -6863,7 +9136,9 @@ Rank	Name	Team	Pos	Bye
     "team": "GB",
     "originalRank": 13,
     "previousRank": 13,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": ["flag"],
+    "id": "josh-jacobs_rb_gb"
   },
   {
     "rank": 14,
@@ -6874,7 +9149,9 @@ Rank	Name	Team	Pos	Bye
     "team": "IND",
     "originalRank": 14,
     "previousRank": 14,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "jonathan-taylor_rb_ind"
   },
   {
     "rank": 15,
@@ -6885,7 +9162,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PHI",
     "originalRank": 15,
     "previousRank": 15,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": ["Safe (Round 2)"],
+    "id": "a-j-brown_wr_phi"
   },
   {
     "rank": 16,
@@ -6896,7 +9175,9 @@ Rank	Name	Team	Pos	Bye
     "rankChange": 0,
     "originalRank": 16,
     "team": "JAX",
-    "bye": 8
+    "bye": 8,
+    "annotations": [],
+    "id": "brian-thomas_wr_jax"
   },
   {
     "rank": 17,
@@ -6907,7 +9188,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NYJ",
     "originalRank": 17,
     "previousRank": 17,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "breece-hall_rb_nyj"
   },
   {
     "rank": 18,
@@ -6918,7 +9201,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LV",
     "originalRank": 18,
     "previousRank": 18,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": [],
+    "id": "ashton-jeanty_rb_lv"
   },
   {
     "rank": 19,
@@ -6929,7 +9214,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SEA",
     "originalRank": 19,
     "previousRank": 19,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": ["flag"],
+    "id": "jaxon-smith-njigba_wr_sea"
   },
   {
     "rank": 20,
@@ -6940,7 +9227,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LAR",
     "originalRank": 20,
     "previousRank": 20,
-    "rankChange": 0
+    "rankChange": 0,
+    "annotations": ["Safe (round 2)"],
+    "id": "kyren-williams_rb_lar"
   },
   {
     "rank": 21,
@@ -6951,7 +9240,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CIN",
     "originalRank": 21,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "chase-brown_rb_cin"
   },
   {
     "rank": 22,
@@ -6962,7 +9253,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIA",
     "originalRank": 22,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "de-von-achane_rb_mia"
   },
   {
     "rank": 23,
@@ -6973,7 +9266,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NO",
     "originalRank": 23,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "alvin-kamara_rb_no"
   },
   {
     "rank": 24,
@@ -6984,7 +9279,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIA",
     "originalRank": 24,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "tyreek-hill_wr_mia"
   },
   {
     "rank": 25,
@@ -6995,7 +9292,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ATL",
     "originalRank": 25,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "drake-london_wr_atl"
   },
   {
     "rank": 26,
@@ -7006,7 +9305,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LAC",
     "originalRank": 26,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "ladd-mcconkey_wr_lac"
   },
   {
     "rank": 27,
@@ -7017,7 +9318,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BUF",
     "originalRank": 27,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "james-cook_rb_buf"
   },
   {
     "rank": 28,
@@ -7028,7 +9331,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LV",
     "originalRank": 28,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["frag"],
+    "id": "brock-bowers_te_lv"
   },
   {
     "rank": 29,
@@ -7039,7 +9344,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ARI",
     "originalRank": 29,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "trey-mcbride_te_ari"
   },
   {
     "rank": 30,
@@ -7050,7 +9357,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CAR",
     "originalRank": 30,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "id": "chuba-hubbard_rb_car"
   },
   {
     "rank": 31,
@@ -7061,7 +9370,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TB",
     "originalRank": 31,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "bucky-irving_rb_tb"
   },
   {
     "rank": 32,
@@ -7072,7 +9383,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SEA",
     "bye": 8,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "kenneth-walker_rb_sea"
   },
   {
     "rank": 33,
@@ -7083,7 +9396,9 @@ Rank	Name	Team	Pos	Bye
     "team": "HOU",
     "originalRank": 33,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "id": "joe-mixon_rb_hou"
   },
   {
     "rank": 34,
@@ -7094,7 +9409,9 @@ Rank	Name	Team	Pos	Bye
     "team": "WAS",
     "originalRank": 34,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "terry-mclaurin_wr_was"
   },
   {
     "rank": 35,
@@ -7103,7 +9420,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 15,
     "originalRank": 35,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "d-j-moore_wr"
   },
   {
     "rank": 36,
@@ -7114,7 +9435,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SF",
     "originalRank": 36,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "george-kittle_te_sf"
   },
   {
     "rank": 37,
@@ -7125,7 +9448,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NYJ",
     "originalRank": 37,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "garrett-wilson_wr_nyj"
   },
   {
     "rank": 38,
@@ -7136,7 +9461,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BAL",
     "originalRank": 38,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "lamar-jackson_qb_bal"
   },
   {
     "rank": 39,
@@ -7147,7 +9474,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BUF",
     "originalRank": 39,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "josh-allen_qb_buf"
   },
   {
     "rank": 40,
@@ -7158,7 +9487,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CIN",
     "originalRank": 40,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "tee-higgins_wr_cin"
   },
   {
     "rank": 41,
@@ -7169,7 +9500,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LAR",
     "originalRank": 41,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "davante-adams_wr_lar"
   },
   {
     "rank": 42,
@@ -7180,7 +9513,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BAL",
     "originalRank": 42,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["safe (round 5)"],
+    "id": "zay-flowers_wr_bal"
   },
   {
     "rank": 43,
@@ -7191,7 +9526,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ARI",
     "bye": 8,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "marvin-harrison_wr_ari"
   },
   {
     "rank": 44,
@@ -7202,7 +9539,9 @@ Rank	Name	Team	Pos	Bye
     "team": "KC",
     "originalRank": 44,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "rashee-rice_wr_kc"
   },
   {
     "rank": 45,
@@ -7213,7 +9552,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PIT",
     "originalRank": 45,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "dk-metcalf_wr_pit"
   },
   {
     "rank": 46,
@@ -7224,7 +9565,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ARI",
     "originalRank": 46,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "james-conner_rb_ari"
   },
   {
     "rank": 47,
@@ -7235,7 +9578,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PHI",
     "originalRank": 47,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "devonta-smith_wr_phi"
   },
   {
     "rank": 48,
@@ -7246,7 +9591,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CIN",
     "originalRank": 48,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["Safe (round 4)"],
+    "id": "joe-burrow_qb_cin"
   },
   {
     "rank": 49,
@@ -7257,7 +9604,9 @@ Rank	Name	Team	Pos	Bye
     "team": "WAS",
     "originalRank": 49,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jayden-daniels_qb_was"
   },
   {
     "rank": 50,
@@ -7268,7 +9617,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LAC",
     "originalRank": 50,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "omarion-hampton_rb_lac"
   },
   {
     "rank": 51,
@@ -7279,7 +9630,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BAL",
     "originalRank": 51,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "mark-andrews_te_bal"
   },
   {
     "rank": 52,
@@ -7290,7 +9643,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DET",
     "originalRank": 52,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "sam-laporta_te_det"
   },
   {
     "rank": 53,
@@ -7301,7 +9656,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIN",
     "originalRank": 53,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "t-j-hockenson_te_min"
   },
   {
     "rank": 54,
@@ -7312,7 +9669,9 @@ Rank	Name	Team	Pos	Bye
     "team": "KC",
     "originalRank": 54,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "travis-kelce_te_kc"
   },
   {
     "rank": 55,
@@ -7323,7 +9682,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DEN",
     "originalRank": 55,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "courtland-sutton_wr_den"
   },
   {
     "rank": 56,
@@ -7334,7 +9695,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TB",
     "originalRank": 56,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "mike-evans_wr_tb"
   },
   {
     "rank": 57,
@@ -7345,7 +9708,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIN",
     "originalRank": 57,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag", "improved o-line"],
+    "id": "jordan-addison_wr_min"
   },
   {
     "rank": 58,
@@ -7356,7 +9721,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DET",
     "originalRank": 58,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jameson-williams_wr_det"
   },
   {
     "rank": 59,
@@ -7367,7 +9734,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SF",
     "originalRank": 59,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "id": "ricky-pearsall_wr_sf"
   },
   {
     "rank": 60,
@@ -7378,7 +9747,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DAL",
     "originalRank": 60,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "george-pickens_wr_dal"
   },
   {
     "rank": 61,
@@ -7389,7 +9760,9 @@ Rank	Name	Team	Pos	Bye
     "team": "KC",
     "originalRank": 61,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "patrick-mahomes_qb_kc"
   },
   {
     "rank": 62,
@@ -7400,7 +9773,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PHI",
     "originalRank": 62,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jalen-hurts_qb_phi"
   },
   {
     "rank": 63,
@@ -7409,7 +9784,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 21,
     "originalRank": 63,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "NYG",
+    "bye": null,
+    "id": "tyrone-tracy_rb"
   },
   {
     "rank": 64,
@@ -7420,7 +9799,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIN",
     "originalRank": 64,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "aaron-jones_rb_min"
   },
   {
     "rank": 65,
@@ -7431,7 +9812,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DET",
     "originalRank": 65,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "david-montgomery_rb_det"
   },
   {
     "rank": 66,
@@ -7442,7 +9825,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TEN",
     "originalRank": 66,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["safe (Round 6)", "improved o-line"],
+    "id": "tony-pollard_rb_ten"
   },
   {
     "rank": 67,
@@ -7453,7 +9838,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CHI",
     "originalRank": 67,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["frag", "improved o-line"],
+    "id": "d-andre-swift_rb_chi"
   },
   {
     "rank": 68,
@@ -7464,7 +9851,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NO",
     "originalRank": 68,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "chris-olave_wr_no"
   },
   {
     "rank": 69,
@@ -7475,7 +9864,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PIT",
     "originalRank": 69,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jaylen-warren_rb_pit"
   },
   {
     "rank": 70,
@@ -7486,7 +9877,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CLE",
     "originalRank": 70,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "jerry-jeudy_wr_cle"
   },
   {
     "rank": 71,
@@ -7497,7 +9890,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIA",
     "originalRank": 71,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jaylen-waddle_wr_mia"
   },
   {
     "rank": 72,
@@ -7508,7 +9903,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TEN",
     "originalRank": 72,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "calvin-ridley_wr_ten"
   },
   {
     "rank": 73,
@@ -7519,7 +9916,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TB",
     "originalRank": 73,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "chris-godwin_wr_tb"
   },
   {
     "rank": 74,
@@ -7530,7 +9929,9 @@ Rank	Name	Team	Pos	Bye
     "team": "KC",
     "originalRank": 74,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "isiah-pacheco_rb_kc"
   },
   {
     "rank": 75,
@@ -7539,7 +9940,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 28,
     "originalRank": 75,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "JAC",
+    "bye": null,
+    "id": "travis-etienne_rb"
   },
   {
     "rank": 76,
@@ -7550,7 +9955,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DEN",
     "originalRank": 76,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "j-k-dobbins_rb_den"
   },
   {
     "rank": 77,
@@ -7561,7 +9968,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SF",
     "originalRank": 77,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jauan-jennings_wr_sf"
   },
   {
     "rank": 78,
@@ -7572,7 +9981,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CHI",
     "originalRank": 78,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "rome-odunze_wr_chi"
   },
   {
     "rank": 79,
@@ -7581,7 +9992,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 30,
     "originalRank": 79,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "TB",
+    "bye": null,
+    "id": "rachaad-white_rb"
   },
   {
     "rank": 80,
@@ -7592,7 +10007,9 @@ Rank	Name	Team	Pos	Bye
     "team": "WAS",
     "bye": 12,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "deebo-samuel_wr_was"
   },
   {
     "rank": 81,
@@ -7603,7 +10020,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LV",
     "originalRank": 81,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jakobi-meyers_wr_lv"
   },
   {
     "rank": 82,
@@ -7614,7 +10033,9 @@ Rank	Name	Team	Pos	Bye
     "team": "GB",
     "originalRank": 82,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jayden-reed_wr_gb"
   },
   {
     "rank": 83,
@@ -7625,7 +10046,9 @@ Rank	Name	Team	Pos	Bye
     "team": "JAX",
     "originalRank": 83,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "travis-hunter_wr_jax"
   },
   {
     "rank": 84,
@@ -7636,7 +10059,9 @@ Rank	Name	Team	Pos	Bye
     "team": "KC",
     "originalRank": 84,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["frag"],
+    "id": "xavier-worthy_wr_kc"
   },
   {
     "rank": 85,
@@ -7647,7 +10072,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NE",
     "originalRank": 85,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "stefon-diggs_wr_ne"
   },
   {
     "rank": 86,
@@ -7658,7 +10085,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SEA",
     "originalRank": 86,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "cooper-kupp_wr_sea"
   },
   {
     "rank": 87,
@@ -7667,7 +10096,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 8,
     "originalRank": 87,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "jonnu-smith_te"
   },
   {
     "rank": 88,
@@ -7678,7 +10111,9 @@ Rank	Name	Team	Pos	Bye
     "team": "WAS",
     "originalRank": 88,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "austin-ekeler_rb_was"
   },
   {
     "rank": 89,
@@ -7687,7 +10122,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 32,
     "originalRank": 89,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "team": "JAC",
+    "bye": null,
+    "id": "tank-bigsby_rb"
   },
   {
     "rank": 90,
@@ -7698,7 +10137,9 @@ Rank	Name	Team	Pos	Bye
     "team": "PIT",
     "originalRank": 90,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["frag"],
+    "id": "kaleb-johnson_rb_pit"
   },
   {
     "rank": 91,
@@ -7709,7 +10150,9 @@ Rank	Name	Team	Pos	Bye
     "team": "WAS",
     "bye": 12,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "brian-robinson_rb_was"
   },
   {
     "rank": 92,
@@ -7720,7 +10163,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NE",
     "originalRank": 92,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "treveyon-henderson_rb_ne"
   },
   {
     "rank": 93,
@@ -7729,7 +10174,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 36,
     "originalRank": 93,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "r-j-harvey_rb"
   },
   {
     "rank": 94,
@@ -7738,7 +10187,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 37,
     "originalRank": 94,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": "CLE",
+    "bye": null,
+    "id": "jerome-ford_rb"
   },
   {
     "rank": 95,
@@ -7747,7 +10200,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 44,
     "originalRank": 95,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "team": "IND",
+    "bye": null,
+    "id": "michael-pittman_wr"
   },
   {
     "rank": 96,
@@ -7758,7 +10215,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BUF",
     "originalRank": 96,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "khalil-shakir_wr_buf"
   },
   {
     "rank": 97,
@@ -7767,7 +10226,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 38,
     "originalRank": 97,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "SEA",
+    "bye": null,
+    "id": "zach-charbonnet_rb"
   },
   {
     "rank": 98,
@@ -7778,7 +10241,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CAR",
     "originalRank": 98,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "tetairoa-mcmillan_wr_car"
   },
   {
     "rank": 99,
@@ -7789,7 +10254,9 @@ Rank	Name	Team	Pos	Bye
     "team": "IND",
     "originalRank": 99,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "josh-downs_wr_ind"
   },
   {
     "rank": 100,
@@ -7798,7 +10265,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 39,
     "originalRank": 100,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "LAC",
+    "bye": null,
+    "id": "najee-harris_rb"
   },
   {
     "rank": 101,
@@ -7809,7 +10280,9 @@ Rank	Name	Team	Pos	Bye
     "team": "LAC",
     "originalRank": 101,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "id": "justin-herbert_qb_lac"
   },
   {
     "rank": 102,
@@ -7820,7 +10293,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DET",
     "originalRank": 102,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jared-goff_qb_det"
   },
   {
     "rank": 103,
@@ -7829,7 +10304,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 40,
     "originalRank": 103,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "NE",
+    "bye": null,
+    "id": "rhamondre-stevenson_rb"
   },
   {
     "rank": 104,
@@ -7838,7 +10317,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 41,
     "originalRank": 104,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "SF",
+    "bye": null,
+    "id": "jordan-mason_rb"
   },
   {
     "rank": 105,
@@ -7847,7 +10330,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 48,
     "originalRank": 105,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "SF",
+    "bye": null,
+    "id": "brandon-aiyuk_wr"
   },
   {
     "rank": 106,
@@ -7856,7 +10343,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 42,
     "originalRank": 106,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": "TEN",
+    "bye": null,
+    "id": "tyjae-spears_rb"
   },
   {
     "rank": 107,
@@ -7865,7 +10356,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 43,
     "originalRank": 107,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "DAL",
+    "bye": null,
+    "id": "javonte-williams_rb"
   },
   {
     "rank": 108,
@@ -7874,7 +10369,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 44,
     "originalRank": 108,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["flag"],
+    "team": "MIA",
+    "bye": null,
+    "id": "jaylen-wright_rb"
   },
   {
     "rank": 109,
@@ -7883,7 +10382,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 45,
     "originalRank": 109,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BUF",
+    "bye": null,
+    "id": "ray-davis_rb"
   },
   {
     "rank": 110,
@@ -7892,7 +10395,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 9,
     "originalRank": 110,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "colston-loveland_te"
   },
   {
     "rank": 111,
@@ -7901,7 +10408,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 10,
     "originalRank": 111,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "IND",
+    "bye": null,
+    "id": "tyler-warren_te"
   },
   {
     "rank": 112,
@@ -7910,7 +10421,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 11,
     "originalRank": 112,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BUF",
+    "bye": null,
+    "id": "dalton-kincaid_te"
   },
   {
     "rank": 113,
@@ -7921,7 +10436,9 @@ Rank	Name	Team	Pos	Bye
     "team": "GB",
     "originalRank": 113,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "tucker-kraft_te_gb"
   },
   {
     "rank": 114,
@@ -7932,7 +10449,9 @@ Rank	Name	Team	Pos	Bye
     "team": "GB",
     "originalRank": 114,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "matthew-golden_wr_gb"
   },
   {
     "rank": 115,
@@ -7941,7 +10460,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 50,
     "originalRank": 115,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "luther-burden_wr"
   },
   {
     "rank": 116,
@@ -7952,7 +10475,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TB",
     "originalRank": 116,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "emeka-egbuka_wr_tb"
   },
   {
     "rank": 117,
@@ -7961,7 +10486,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 52,
     "originalRank": 117,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "jayden-higgins_wr"
   },
   {
     "rank": 118,
@@ -7972,7 +10501,9 @@ Rank	Name	Team	Pos	Bye
     "team": "HOU",
     "originalRank": 118,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "c-j-stroud_qb_hou"
   },
   {
     "rank": 119,
@@ -7983,7 +10514,9 @@ Rank	Name	Team	Pos	Bye
     "team": "SF",
     "originalRank": 119,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "brock-purdy_qb_sf"
   },
   {
     "rank": 120,
@@ -7994,7 +10527,9 @@ Rank	Name	Team	Pos	Bye
     "team": "GB",
     "originalRank": 120,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "jordan-love_qb_gb"
   },
   {
     "rank": 121,
@@ -8005,7 +10540,9 @@ Rank	Name	Team	Pos	Bye
     "team": "TB",
     "originalRank": 121,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["frag"],
+    "id": "baker-mayfield_qb_tb"
   },
   {
     "rank": 122,
@@ -8014,7 +10551,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 46,
     "originalRank": 122,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": "CLE",
+    "bye": null,
+    "id": "quinshon-judkins_rb"
   },
   {
     "rank": 123,
@@ -8023,7 +10564,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 47,
     "originalRank": 123,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "ATL",
+    "bye": null,
+    "id": "tyler-allgeier_rb"
   },
   {
     "rank": 124,
@@ -8032,7 +10577,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 48,
     "originalRank": 124,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "NYG",
+    "bye": null,
+    "id": "cam-skattebo_rb"
   },
   {
     "rank": 125,
@@ -8041,7 +10590,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 49,
     "originalRank": 125,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "LAR",
+    "bye": null,
+    "id": "blake-corum_rb"
   },
   {
     "rank": 126,
@@ -8050,7 +10603,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 50,
     "originalRank": 126,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "DAL",
+    "bye": null,
+    "id": "rico-dowdle_rb"
   },
   {
     "rank": 127,
@@ -8061,7 +10618,9 @@ Rank	Name	Team	Pos	Bye
     "team": "HOU",
     "originalRank": 127,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "christian-kirk_wr_hou"
   },
   {
     "rank": 128,
@@ -8072,7 +10631,9 @@ Rank	Name	Team	Pos	Bye
     "team": "BUF",
     "originalRank": 128,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "keon-coleman_wr_buf"
   },
   {
     "rank": 129,
@@ -8083,7 +10644,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ATL",
     "originalRank": 129,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "darnell-mooney_wr_atl"
   },
   {
     "rank": 130,
@@ -8094,7 +10657,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CAR",
     "originalRank": 130,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "adam-thielen_wr_car"
   },
   {
     "rank": 131,
@@ -8103,7 +10668,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 57,
     "originalRank": 131,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "GB",
+    "bye": null,
+    "id": "romeo-doubs_wr"
   },
   {
     "rank": 132,
@@ -8114,7 +10683,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DEN",
     "originalRank": 132,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "evan-engram_te_den"
   },
   {
     "rank": 133,
@@ -8123,7 +10694,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 14,
     "originalRank": 133,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "PHI",
+    "bye": null,
+    "id": "dallas-goedert_te"
   },
   {
     "rank": 134,
@@ -8134,7 +10709,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CLE",
     "originalRank": 134,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "david-njoku_te_cle"
   },
   {
     "rank": 135,
@@ -8143,7 +10720,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 51,
     "originalRank": 135,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "ARI",
+    "bye": null,
+    "id": "trey-benson_rb"
   },
   {
     "rank": 136,
@@ -8152,7 +10733,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 52,
     "originalRank": 136,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "SF",
+    "bye": null,
+    "id": "isaac-guerendo_rb"
   },
   {
     "rank": 137,
@@ -8161,7 +10746,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 53,
     "originalRank": 137,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "dylan-sampson_rb"
   },
   {
     "rank": 138,
@@ -8170,7 +10759,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 54,
     "originalRank": 138,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BAL",
+    "bye": null,
+    "id": "keaton-mitchell_rb"
   },
   {
     "rank": 139,
@@ -8179,7 +10772,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 55,
     "originalRank": 139,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "NYJ",
+    "bye": null,
+    "id": "braelon-allen_rb"
   },
   {
     "rank": 140,
@@ -8190,7 +10787,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NO",
     "originalRank": 140,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "rashid-shaheed_wr_no"
   },
   {
     "rank": 141,
@@ -8201,7 +10800,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CLE",
     "originalRank": 141,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "cedric-tillman_wr_cle"
   },
   {
     "rank": 142,
@@ -8210,7 +10811,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 60,
     "originalRank": 142,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "TB",
+    "bye": null,
+    "id": "jalen-mcmillan_wr"
   },
   {
     "rank": 143,
@@ -8221,7 +10826,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NYG",
     "originalRank": 143,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "wan-dale-robinson_wr_nyg"
   },
   {
     "rank": 144,
@@ -8232,7 +10839,9 @@ Rank	Name	Team	Pos	Bye
     "team": "ARI",
     "originalRank": 144,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "kyler-murray_qb_ari"
   },
   {
     "rank": 145,
@@ -8243,7 +10852,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NE",
     "originalRank": 145,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "drake-maye_qb_ne"
   },
   {
     "rank": 146,
@@ -8254,7 +10865,9 @@ Rank	Name	Team	Pos	Bye
     "team": "CHI",
     "originalRank": 146,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "id": "caleb-williams_qb_chi"
   },
   {
     "rank": 147,
@@ -8263,7 +10876,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 62,
     "originalRank": 147,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "jaylin-noel_wr"
   },
   {
     "rank": 148,
@@ -8272,7 +10889,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 63,
     "originalRank": 148,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "CAR",
+    "bye": null,
+    "id": "xavier-legette_wr"
   },
   {
     "rank": 149,
@@ -8281,7 +10902,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 64,
     "originalRank": 149,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BAL",
+    "bye": null,
+    "id": "rashod-bateman_wr"
   },
   {
     "rank": 150,
@@ -8290,7 +10915,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 65,
     "originalRank": 150,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "GB",
+    "bye": null,
+    "id": "dontayvion-wicks_wr"
   },
   {
     "rank": 151,
@@ -8299,7 +10928,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 66,
     "originalRank": 151,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "IND",
+    "bye": null,
+    "id": "alec-pierce_wr"
   },
   {
     "rank": 152,
@@ -8308,7 +10941,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 56,
     "originalRank": 152,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "kendre-miller_rb"
   },
   {
     "rank": 153,
@@ -8317,7 +10954,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 57,
     "originalRank": 153,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "woody-marks_rb"
   },
   {
     "rank": 154,
@@ -8326,7 +10967,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 58,
     "originalRank": 154,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "elijah-mitchell_rb"
   },
   {
     "rank": 155,
@@ -8335,7 +10980,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 59,
     "originalRank": 155,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "marshawn-lloyd_rb"
   },
   {
     "rank": 156,
@@ -8344,7 +10993,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 60,
     "originalRank": 156,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "JAC",
+    "bye": null,
+    "id": "trevor-etienne_rb"
   },
   {
     "rank": 157,
@@ -8353,7 +11006,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 61,
     "originalRank": 157,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "will-shipley_rb"
   },
   {
     "rank": 158,
@@ -8362,7 +11019,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 62,
     "originalRank": 158,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "jaydon-blue_rb"
   },
   {
     "rank": 159,
@@ -8371,7 +11032,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 63,
     "originalRank": 159,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "DEN",
+    "bye": null,
+    "id": "tahj-brooks_rb"
   },
   {
     "rank": 160,
@@ -8380,7 +11045,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 64,
     "originalRank": 160,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "HOU",
+    "bye": null,
+    "id": "nick-chubb_rb"
   },
   {
     "rank": 161,
@@ -8389,7 +11058,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 67,
     "originalRank": 161,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "quentin-johnston_wr"
   },
   {
     "rank": 162,
@@ -8398,7 +11071,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 68,
     "originalRank": 162,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "jack-bech_wr"
   },
   {
     "rank": 163,
@@ -8407,7 +11084,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 69,
     "originalRank": 163,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "tre-harris_wr"
   },
   {
     "rank": 164,
@@ -8418,7 +11099,9 @@ Rank	Name	Team	Pos	Bye
     "team": "KC",
     "originalRank": 164,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "marquise-brown_wr_kc"
   },
   {
     "rank": 165,
@@ -8427,7 +11110,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 71,
     "originalRank": 165,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "kyle-williams_wr"
   },
   {
     "rank": 166,
@@ -8436,7 +11123,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 72,
     "originalRank": 166,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "michael-wilson_wr"
   },
   {
     "rank": 167,
@@ -8445,7 +11136,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 16,
     "originalRank": 167,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "cade-otton_te"
   },
   {
     "rank": 168,
@@ -8454,7 +11149,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 17,
     "originalRank": 168,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "ATL",
+    "bye": null,
+    "id": "kyle-pitts_te"
   },
   {
     "rank": 169,
@@ -8463,7 +11162,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 18,
     "originalRank": 169,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BAL",
+    "bye": null,
+    "id": "isaiah-likely_te"
   },
   {
     "rank": 170,
@@ -8472,7 +11175,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 65,
     "originalRank": 170,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "damien-martinez_rb"
   },
   {
     "rank": 171,
@@ -8481,7 +11188,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 66,
     "originalRank": 171,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "dj-giddens_rb"
   },
   {
     "rank": 172,
@@ -8490,7 +11201,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 67,
     "originalRank": 172,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "antonio-gibson_rb"
   },
   {
     "rank": 173,
@@ -8499,7 +11214,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 68,
     "originalRank": 173,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "brashard-smith_rb"
   },
   {
     "rank": 174,
@@ -8510,7 +11229,9 @@ Rank	Name	Team	Pos	Bye
     "team": "NYJ",
     "originalRank": 174,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "justin-fields_qb_nyj"
   },
   {
     "rank": 175,
@@ -8521,7 +11242,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DAL",
     "originalRank": 175,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "dak-prescott_qb_dal"
   },
   {
     "rank": 176,
@@ -8530,7 +11253,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 18,
     "originalRank": 176,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "MIA",
+    "bye": null,
+    "id": "tua-tagovailoa_qb"
   },
   {
     "rank": 177,
@@ -8541,7 +11268,9 @@ Rank	Name	Team	Pos	Bye
     "team": "MIN",
     "originalRank": 177,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "j-j-mccarthy_qb_min"
   },
   {
     "rank": 178,
@@ -8552,7 +11281,9 @@ Rank	Name	Team	Pos	Bye
     "team": "DEN",
     "originalRank": 178,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "id": "bo-nix_qb_den"
   },
   {
     "rank": 179,
@@ -8561,7 +11292,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 73,
     "originalRank": 179,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "deandre-hopkins_wr"
   },
   {
     "rank": 180,
@@ -8570,7 +11305,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 74,
     "originalRank": 180,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "CAR",
+    "bye": null,
+    "id": "jalen-coker_wr"
   },
   {
     "rank": 181,
@@ -8579,7 +11318,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 75,
     "originalRank": 181,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BUF",
+    "bye": null,
+    "id": "josh-palmer_wr"
   },
   {
     "rank": 182,
@@ -8588,7 +11331,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 76,
     "originalRank": 182,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "marvin-mims_wr"
   },
   {
     "rank": 183,
@@ -8597,7 +11344,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 69,
     "originalRank": 183,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "roschon-johnson_rb"
   },
   {
     "rank": 184,
@@ -8606,7 +11357,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 70,
     "originalRank": 184,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "audric-estim_rb"
   },
   {
     "rank": 185,
@@ -8615,7 +11370,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 71,
     "originalRank": 185,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "dameon-pierce_rb"
   },
   {
     "rank": 186,
@@ -8624,7 +11383,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 72,
     "originalRank": 186,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "kimani-vidal_rb"
   },
   {
     "rank": 187,
@@ -8633,7 +11396,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 73,
     "originalRank": 187,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "BAL",
+    "bye": null,
+    "id": "justice-hill_rb"
   },
   {
     "rank": 188,
@@ -8642,7 +11409,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 74,
     "originalRank": 188,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "PHI",
+    "bye": null,
+    "id": "kenneth-gainwell_rb"
   },
   {
     "rank": 189,
@@ -8651,7 +11422,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 75,
     "originalRank": 189,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "ty-johnson_rb"
   },
   {
     "rank": 190,
@@ -8660,7 +11435,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 77,
     "originalRank": 190,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "jalen-royals_wr"
   },
   {
     "rank": 191,
@@ -8669,7 +11448,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 78,
     "originalRank": 191,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "NE",
+    "bye": null,
+    "id": "demario-douglas_wr"
   },
   {
     "rank": 192,
@@ -8678,7 +11461,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 79,
     "originalRank": 192,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "diontae-johnson_wr"
   },
   {
     "rank": 193,
@@ -8687,7 +11474,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 21,
     "originalRank": 193,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "JAC",
+    "bye": null,
+    "id": "trevor-lawrence_qb"
   },
   {
     "rank": 194,
@@ -8696,7 +11487,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 22,
     "originalRank": 194,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "matthew-stafford_qb"
   },
   {
     "rank": 195,
@@ -8705,7 +11500,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 23,
     "originalRank": 195,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "michael-penix_qb"
   },
   {
     "rank": 196,
@@ -8714,7 +11513,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 24,
     "originalRank": 196,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "bryce-young_qb"
   },
   {
     "rank": 197,
@@ -8723,7 +11526,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 25,
     "originalRank": 197,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "geno-smith_qb"
   },
   {
     "rank": 198,
@@ -8732,7 +11539,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 26,
     "originalRank": 198,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": null,
+    "bye": null,
+    "id": "sam-darnold_qb"
   },
   {
     "rank": 199,
@@ -8741,7 +11552,11 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 80,
     "originalRank": 199,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": ["improved o-line"],
+    "team": null,
+    "bye": null,
+    "id": "elic-ayomanor_wr"
   },
   {
     "rank": 200,
@@ -8750,9 +11565,14 @@ Rank	Name	Team	Pos	Bye
     "positionRank": 76,
     "originalRank": 200,
     "previousRank": null,
-    "rankChange": null
+    "rankChange": null,
+    "annotations": [],
+    "team": "SF",
+    "bye": null,
+    "id": "jordan-james_rb"
   }
 ]
+
 
 === src/data/players_with_bye.json ===
 [
@@ -8967,6 +11787,37 @@ declare module "*.vue" {
 }
 
 
+=== src/types/annotations.ts ===
+// src/types/annotations.ts
+
+export type InjuryPart =
+  | "concussion"
+  | "ankle"
+  | "foot"
+  | "toe"
+  | "hand"
+  | "wrist"
+  | "knee"
+  | "shoulder"
+  | "hamstring"
+  | "quad"
+  | "groin"
+  | "back"
+  | string;
+
+export type Annotation =
+  | { kind: "injury"; part?: InjuryPart; status?: string }
+  | { kind: "oline"; quality?: "improved" | "concern" | string }
+  | {
+      kind: "contract";
+      state?: "holding-out" | "extension" | "signed" | string;
+    }
+  | { kind: "suspension"; games?: number }
+  | { kind: "depthchart"; whoLeft?: string }
+  | { kind: "film"; state?: string; tag?: string; grade?: string }
+  | { kind: "flag" | "frag" | "swing" | "safe" | "acid_reflux" | "post_hype" };
+
+
 === .gitignore ===
 # Logs
 logs
@@ -9007,11 +11858,14 @@ dist-ssr
     "list:project": "node scripts/all-files.js"
   },
   "dependencies": {
+    "@iconify/vue": "^5.0.0",
+    "lucide-vue-next": "^0.541.0",
     "pinia": "^3.0.3",
     "vue": "^3.5.17"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/vite": "^4.1.12",
     "@vitejs/plugin-vue": "^6.0.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
@@ -9033,7 +11887,17 @@ module.exports = {
 === tailwind.config.cjs ===
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{vue,js,ts,jsx,tsx}",
+    "./src/data/**/*.{json}",
+  ],
+  safelist: [
+    {
+      pattern:
+        /(bg|text|border)-(emerald|rose|indigo|amber|sky|slate|orange|lime|fuchsia|teal)-(50|100|200|300|400|500|600|700|800|900)/,
+    },
+  ],
   theme: {
     extend: {},
   },
@@ -9069,9 +11933,10 @@ module.exports = {
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import path from "node:path";
+import tailwind from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwind()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

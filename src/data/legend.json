@@ -1,0 +1,72 @@
+[
+  {
+    "key": "oline_improved",
+    "label": "Improved offensive line",
+    "description": "Offensive line has improved (personnel, coaching, or continuity). Expect better pockets and rushing efficiency.",
+    "icon": "ArrowUpRight",
+    "badgeClass": "bg-emerald-100 text-emerald-800"
+  },
+  {
+    "key": "oline_concern",
+    "label": "Offensive lines we are worried about",
+    "description": "Offensive line with concerns (injuries, turnover, poor grades). Expect more QB pressure and weaker run game.",
+    "icon": "AlertTriangle",
+    "badgeClass": "bg-rose-100 text-rose-800"
+  },
+  {
+    "key": "flag",
+    "label": "Flag player",
+    "description": "Plant your flag. You're above market; willing to draft earlier than consensus.",
+    "icon": "Flag",
+    "badgeClass": "bg-indigo-100 text-indigo-800"
+  },
+  {
+    "key": "frag",
+    "label": "Frag player",
+    "description": "Player with elevated availability risk (injury, suspension, or age). Requires depth and contingency plans.",
+    "icon": "Activity",
+    "badgeClass": "bg-amber-100 text-amber-800"
+  },
+  {
+    "key": "post_hype",
+    "label": "Post-hype sleeper",
+    "description": "Once hyped but now discounted. Talent and opportunity path remain intact.",
+    "icon": "RotateCcw",
+    "badgeClass": "bg-sky-100 text-sky-800"
+  },
+  {
+    "key": "film_zero",
+    "label": "Film room zeros",
+    "description": "Tape reveals concerning traits or usage (can't separate, poor vision, processing). Priced accordingly.",
+    "icon": "ThumbsDown",
+    "badgeClass": "bg-slate-200 text-slate-800"
+  },
+  {
+    "key": "acid_reflux",
+    "label": "Acid reflux all stars",
+    "description": "Players who may produce, but you hate clicking draft. Risk factors: age, usage, volatility.",
+    "icon": "CircleSlash",
+    "badgeClass": "bg-orange-100 text-orange-800"
+  },
+  {
+    "key": "film_hero",
+    "label": "Film room heroes",
+    "description": "Tape darlings with traits and roles that translate. Willing to draft aggressively.",
+    "icon": "ThumbsUp",
+    "badgeClass": "bg-lime-100 text-lime-800"
+  },
+  {
+    "key": "swing",
+    "label": "Swing players",
+    "description": "Wide outcome range; high spike weeks and low floors. Great for best ball formats.",
+    "icon": "ActivitySquare",
+    "badgeClass": "bg-fuchsia-100 text-fuchsia-800"
+  },
+  {
+    "key": "safe",
+    "label": "Safe players",
+    "description": "Stable role and volume; high floor with lower variance. Ideal for managed leagues.",
+    "icon": "Shield",
+    "badgeClass": "bg-teal-100 text-teal-800"
+  }
+]

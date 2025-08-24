@@ -35,23 +35,22 @@ function roll() {
 </script>
 
 <template>
-  <div class="flex flex-col space-y-6 gap-3">
+  <div class="flex flex-col border border-slate-200 rounded-md p-2 space-y-1">
     <button
       type="button"
       @click="roll"
-      class="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm"
+      class="px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs"
     >
       {{ label }}
     </button>
 
-    <!-- shows only after first roll -->
-    <span v-if="value !== null" class="text-sm">
-      Draft position:
+    <p class="inline-flex items-center text-sm min-w-[120px]">
       <span
-        class="inline-flex items-center px-2 py-0.5 rounded bg-blue-600 text-white font-semibold"
+        v-if="value !== null"
+        class="inline-flex items-center rounded px-2 bg-blue-600 text-white font-semibold ml-1"
       >
         {{ value }}
       </span>
-    </span>
+    </p>
   </div>
 </template>

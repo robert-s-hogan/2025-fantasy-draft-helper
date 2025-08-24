@@ -13,7 +13,7 @@ const teamsRef = ref(props.teams);
 watch(
   () => props.teams,
   (v) => (teamsRef.value = v)
-); // keep in sync
+);
 
 const { displayList } = useDraftBoard(teamsRef);
 </script>
@@ -26,32 +26,42 @@ const { displayList } = useDraftBoard(teamsRef);
       <thead class="bg-slate-100 sticky top-0 z-10 text-xs">
         <tr class="select-none">
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-10 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             #
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-12 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             Δ
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-left text-xs font-semibold"
+            class="w-36 border-b border-slate-300 px-2 py-2 text-center font-semibold"
+          >
+            Draft
+          </th>
+          <th
+            class="border-b border-slate-300 px-4 py-2 text-left font-semibold"
           >
             Player
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
-          >
-            Pos
-          </th>
-          <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-14 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             Team
           </th>
           <th
-            class="border-b border-slate-300 px-4 py-2 text-center text-xs font-semibold"
+            class="w-12 border-b border-slate-300 px-2 py-2 text-center font-semibold"
+          >
+            Bye
+          </th>
+          <th
+            class="w-12 border-b border-slate-300 px-2 py-2 text-center font-semibold"
+          >
+            POS
+          </th>
+          <th
+            class="w-10 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           ></th>
         </tr>
       </thead>
@@ -63,7 +73,7 @@ const { displayList } = useDraftBoard(teamsRef);
         >
           <tr v-if="item.type === 'header'">
             <td
-              colspan="6"
+              colspan="8"
               class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
             >
               Round {{ item.round }}
@@ -82,7 +92,7 @@ const { displayList } = useDraftBoard(teamsRef);
   </div>
 </template>
 
-<style>
+<style scoped>
 tbody tr:hover {
   outline: 2px solid rgba(0, 0, 0, 0.15);
   outline-offset: -2px;

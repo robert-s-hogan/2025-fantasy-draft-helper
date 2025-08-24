@@ -2,13 +2,22 @@
 import { reactive, ref, computed } from "vue";
 import { usePlayersStore, type Player } from "@stores/players";
 
-export type SlotId = "QB" | "WR1" | "WR2" | "WR3" | "RB1" | "RB2" | "TE";
+export type SlotId =
+  | "QB"
+  | "WR1"
+  | "WR2"
+  | "WR3"
+  | "RB1"
+  | "RB2"
+  | "TE"
+  | "DST";
 
 const targetsByPos: Record<Player["position"], SlotId[]> = {
   WR: ["WR1", "WR2", "WR3"],
   RB: ["RB1", "RB2"],
   TE: ["TE"],
   QB: ["QB"],
+  DST: ["DST"],
 };
 
 export function useRoster() {
@@ -22,13 +31,16 @@ export function useRoster() {
     RB1: null,
     RB2: null,
     TE: null,
+    DST: null,
   });
   const bench = ref<Player[]>([]);
 
   function draftById(id: string) {
-    const p = store.byId(id);
+    const p = store.getById(id);
     if (!p) return;
-    for (const slot of targetsByPos[p.position]) {
+    if (!p) return;
+    const positions = targetsByPos[p.position as keyof typeof targetsByPos];
+    for (const slot of positions) {
       if (!roster[slot]) {
         roster[slot] = p;
         store.hideById(p.id);

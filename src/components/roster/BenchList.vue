@@ -2,23 +2,18 @@
 import type { Player } from "@stores/players";
 defineProps<{ bench: Player[] }>();
 
-const posBg: Record<Player["position"], string> = {
-  WR: "bg-pos-wr",
-  RB: "bg-pos-rb",
-  TE: "bg-pos-te",
-  QB: "bg-pos-qb",
-};
+const posBg = { WR: "wr", RB: "rb", TE: "te", QB: "qb", DST: "dst" } as const;
 </script>
 
 <template>
-  <div>
-    <div class="text-xs uppercase text-slate-400 mb-1">Bench</div>
+  <div class="mt-3">
+    <div class="text-xs uppercase text-white mb-1">Bench</div>
     <div class="grid grid-cols-2 gap-2">
       <div
         v-for="p in bench"
         :key="p.id"
         :class="[
-          'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2 text-slate-900',
+          'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between gap-2 text-white',
           posBg[p.position] || 'bg-slate-100',
         ]"
       >

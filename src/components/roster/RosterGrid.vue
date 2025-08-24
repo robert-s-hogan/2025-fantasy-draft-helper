@@ -5,12 +5,7 @@ import type { SlotId } from "@/composables/useRoster";
 // ✅ one call only
 const { roster } = defineProps<{ roster: Record<SlotId, Player | null> }>();
 
-const posBg: Record<Player["position"], string> = {
-  WR: "bg-pos-wr",
-  RB: "bg-pos-rb",
-  TE: "bg-pos-te",
-  QB: "bg-pos-qb",
-};
+const posBg = { WR: "wr", RB: "rb", TE: "te", QB: "qb", DST: "dst" } as const;
 
 const wrSlots: SlotId[] = ["WR1", "WR2", "WR3"];
 const rbSlots: SlotId[] = ["RB1", "RB2"];
@@ -24,12 +19,14 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
     <div
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        roster.QB ? posBg[roster.QB.position] : 'bg-slate-100',
+        roster.QB ? posBg[roster.QB.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">QB</span>
+      <span class="text-xs tracking-wide text-white">QB</span>
       <template v-if="roster.QB">
-        <span class="text-sm truncate max-w-[12rem]">{{ roster.QB.name }}</span>
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
+          roster.QB.name
+        }}</span>
         <span
           v-if="roster.QB.team"
           class="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 uppercase"
@@ -46,12 +43,12 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
       :key="id"
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-100',
+        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">WR</span>
+      <span class="text-xs tracking-wide text-white">WR</span>
       <template v-if="getSlot(id)">
-        <span class="text-sm truncate max-w-[12rem]">{{
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
           getSlot(id)!.name
         }}</span>
       </template>
@@ -64,12 +61,12 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
       :key="id"
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-100',
+        getSlot(id) ? posBg[getSlot(id)!.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">RB</span>
+      <span class="text-xs tracking-wide text-white">RB</span>
       <template v-if="getSlot(id)">
-        <span class="text-sm truncate max-w-[12rem]">{{
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
           getSlot(id)!.name
         }}</span>
       </template>
@@ -80,12 +77,30 @@ const getSlot = (id: SlotId) => roster?.[id] ?? null;
     <div
       :class="[
         'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
-        roster.TE ? posBg[roster.TE.position] : 'bg-slate-100',
+        roster.TE ? posBg[roster.TE.position] : 'bg-slate-600',
       ]"
     >
-      <span class="text-xs tracking-wide">TE</span>
+      <span class="text-xs tracking-wide text-white">TE</span>
       <template v-if="roster.TE">
-        <span class="text-sm truncate max-w-[12rem]">{{ roster.TE.name }}</span>
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
+          roster.TE.name
+        }}</span>
+      </template>
+      <span v-else class="text-xs text-slate-500">—</span>
+    </div>
+
+    <!-- DST -->
+    <div
+      :class="[
+        'rounded px-3 py-2 md:px-4 md:py-3 flex items-center justify-between text-slate-900',
+        roster.DST ? posBg[roster.DST.position] : 'bg-slate-600',
+      ]"
+    >
+      <span class="text-xs tracking-wide text-white">DST</span>
+      <template v-if="roster.DST">
+        <span class="text-sm truncate max-w-[12rem] text-white">{{
+          roster.DST.name
+        }}</span>
       </template>
       <span v-else class="text-xs text-slate-500">—</span>
     </div>
