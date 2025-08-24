@@ -763,7 +763,7 @@
     "originalRank": 59,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["flag"],
+    "annotations": ["flag", "film room heroes"],
     "id": "ricky-pearsall_wr_sf"
   },
   {
@@ -854,7 +854,7 @@
     "originalRank": 66,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["safe (Round 6)", "improved o-line"],
+    "annotations": ["safe", "improved o-line"],
     "id": "tony-pollard_rb_ten"
   },
   {
@@ -867,7 +867,7 @@
     "originalRank": 67,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["frag", "improved o-line"],
+    "annotations": ["frag", "improved o-line", "film room zeroes"],
     "id": "d-andre-swift_rb_chi"
   },
   {
@@ -969,7 +969,7 @@
     "originalRank": 75,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["swing player"],
     "team": "JAC",
     "bye": null,
     "id": "travis-etienne_rb"
@@ -984,7 +984,7 @@
     "originalRank": 76,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["film room heroes"],
     "id": "j-k-dobbins_rb_den"
   },
   {
@@ -1021,7 +1021,7 @@
     "originalRank": 79,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["post-hype sleeper"],
     "team": "TB",
     "bye": null,
     "id": "rachaad-white_rb"
@@ -1036,7 +1036,7 @@
     "bye": 12,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["swing"],
     "id": "deebo-samuel_wr_was"
   },
   {
@@ -1179,7 +1179,7 @@
     "bye": 12,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["won't be on team"],
     "id": "brian-robinson_rb_was"
   },
   {
@@ -1216,7 +1216,7 @@
     "originalRank": 94,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["improved o-line"],
+    "annotations": ["improved o-line", "post-hype sleeper"],
     "team": "CLE",
     "bye": null,
     "id": "jerome-ford_rb"
@@ -1229,7 +1229,7 @@
     "originalRank": 95,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["flag"],
+    "annotations": ["flag", "post-hype sleeper"],
     "team": "IND",
     "bye": null,
     "id": "michael-pittman_wr"
@@ -1309,7 +1309,7 @@
     "originalRank": 101,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["flag"],
+    "annotations": ["flag", "post-hype sleeper"],
     "id": "justin-herbert_qb_lac"
   },
   {
@@ -1411,7 +1411,7 @@
     "originalRank": 109,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["film room heroes"],
     "team": "BUF",
     "bye": null,
     "id": "ray-davis_rb"
@@ -1424,7 +1424,7 @@
     "originalRank": 110,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["improved o-line"],
+    "annotations": ["improved o-line", "rookie"],
     "team": null,
     "bye": null,
     "id": "colston-loveland_te"
@@ -1437,7 +1437,7 @@
     "originalRank": 111,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["rookie"],
     "team": "IND",
     "bye": null,
     "id": "tyler-warren_te"
@@ -1660,7 +1660,7 @@
     "originalRank": 128,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["film room zeroes"],
     "id": "keon-coleman_wr_buf"
   },
   {
@@ -2087,7 +2087,7 @@
     "originalRank": 161,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["film room zeroes"],
     "team": null,
     "bye": null,
     "id": "quentin-johnston_wr"
@@ -2258,7 +2258,7 @@
     "originalRank": 174,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["swing"],
     "id": "justin-fields_qb_nyj"
   },
   {
@@ -2297,7 +2297,7 @@
     "originalRank": 177,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["improved o-line"],
     "id": "j-j-mccarthy_qb_min"
   },
   {
@@ -2310,7 +2310,7 @@
     "originalRank": 178,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["film room zeroes"],
     "id": "bo-nix_qb_den"
   },
   {
@@ -2477,7 +2477,7 @@
     "originalRank": 191,
     "previousRank": null,
     "rankChange": null,
-    "annotations": [],
+    "annotations": ["post-hype sleep"],
     "team": "NE",
     "bye": null,
     "id": "demario-douglas_wr"
