@@ -46,6 +46,11 @@ const { displayList } = useDraftBoard(teamsRef);
             Player
           </th>
           <th
+            class="border-b border-slate-300 px-4 py-2 text-left font-semibold"
+          >
+            Annotations
+          </th>
+          <th
             class="w-14 border-b border-slate-300 px-2 py-2 text-center font-semibold"
           >
             Team
@@ -73,7 +78,7 @@ const { displayList } = useDraftBoard(teamsRef);
         >
           <tr v-if="item.type === 'header'">
             <td
-              colspan="8"
+              colspan="9"
               class="bg-slate-200 text-center font-semibold text-sm py-1 border-y border-slate-300 select-none"
             >
               Round {{ item.round }}
