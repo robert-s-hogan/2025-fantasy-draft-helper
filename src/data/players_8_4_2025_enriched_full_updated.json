@@ -425,7 +425,7 @@
     "originalRank": 33,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["flag"],
+    "annotations": ["flag", "injured", "RD8"],
     "id": "joe-mixon_rb_hou"
   },
   {
@@ -450,7 +450,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line"],
-    "team": null,
+    "team": "CHI",
     "bye": null,
     "id": "d-j-moore_wr"
   },
@@ -1126,7 +1126,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "PIT",
     "bye": null,
     "id": "jonnu-smith_te"
   },
@@ -1204,7 +1204,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "DEN",
     "bye": null,
     "id": "r-j-harvey_rb"
   },
@@ -1398,7 +1398,7 @@
     "originalRank": 108,
     "previousRank": null,
     "rankChange": null,
-    "annotations": ["flag"],
+    "annotations": ["flag", "injured"],
     "team": "MIA",
     "bye": null,
     "id": "jaylen-wright_rb"
@@ -1425,7 +1425,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line", "rookie"],
-    "team": null,
+    "team": "CHI",
     "bye": null,
     "id": "colston-loveland_te"
   },
@@ -1490,7 +1490,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line"],
-    "team": null,
+    "team": "CHI",
     "bye": null,
     "id": "luther-burden_wr"
   },
@@ -1516,7 +1516,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "HOU",
     "bye": null,
     "id": "jayden-higgins_wr"
   },
@@ -1776,7 +1776,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line"],
-    "team": null,
+    "team": "CLE",
     "bye": null,
     "id": "dylan-sampson_rb"
   },
@@ -1906,7 +1906,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "HOU",
     "bye": null,
     "id": "jaylin-noel_wr"
   },
@@ -1971,7 +1971,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "NO",
     "bye": null,
     "id": "kendre-miller_rb"
   },
@@ -1984,7 +1984,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "HOU",
     "bye": null,
     "id": "woody-marks_rb"
   },
@@ -1997,7 +1997,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "KC",
     "bye": null,
     "id": "elijah-mitchell_rb"
   },
@@ -2010,7 +2010,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "GB",
     "bye": null,
     "id": "marshawn-lloyd_rb"
   },
@@ -2036,7 +2036,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "PHI",
     "bye": null,
     "id": "will-shipley_rb"
   },
@@ -2049,7 +2049,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "DAL",
     "bye": null,
     "id": "jaydon-blue_rb"
   },
@@ -2088,7 +2088,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["film room zeroes"],
-    "team": null,
+    "team": "LAC",
     "bye": null,
     "id": "quentin-johnston_wr"
   },
@@ -2101,7 +2101,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "OAK",
     "bye": null,
     "id": "jack-bech_wr"
   },
@@ -2114,7 +2114,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "LAC",
     "bye": null,
     "id": "tre-harris_wr"
   },
@@ -2140,7 +2140,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "NE",
     "bye": null,
     "id": "kyle-williams_wr"
   },
@@ -2153,7 +2153,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "ARI",
     "bye": null,
     "id": "michael-wilson_wr"
   },
@@ -2166,7 +2166,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "TB",
     "bye": null,
     "id": "cade-otton_te"
   },
@@ -2205,7 +2205,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "NE",
     "bye": null,
     "id": "damien-martinez_rb"
   },
@@ -2218,7 +2218,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "IND",
     "bye": null,
     "id": "dj-giddens_rb"
   },
@@ -2231,7 +2231,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "NE",
     "bye": null,
     "id": "antonio-gibson_rb"
   },
@@ -2244,7 +2244,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "KC",
     "bye": null,
     "id": "brashard-smith_rb"
   },
@@ -2322,7 +2322,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "BAL",
     "bye": null,
     "id": "deandre-hopkins_wr"
   },
@@ -2361,7 +2361,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "DEN",
     "bye": null,
     "id": "marvin-mims_wr"
   },
@@ -2374,20 +2374,20 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line"],
-    "team": null,
+    "team": "CHI",
     "bye": null,
     "id": "roschon-johnson_rb"
   },
   {
     "rank": 184,
-    "name": "Audric Estim\u00e9",
+    "name": "Audric Estime",
     "position": "RB",
     "positionRank": 70,
     "originalRank": 184,
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "DEN",
     "bye": null,
     "id": "audric-estim_rb"
   },
@@ -2400,7 +2400,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "HOU",
     "bye": null,
     "id": "dameon-pierce_rb"
   },
@@ -2413,7 +2413,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "LAC",
     "bye": null,
     "id": "kimani-vidal_rb"
   },
@@ -2452,7 +2452,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "BUF",
     "bye": null,
     "id": "ty-johnson_rb"
   },
@@ -2465,7 +2465,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "KC",
     "bye": null,
     "id": "jalen-royals_wr"
   },
@@ -2491,7 +2491,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line"],
-    "team": null,
+    "team": "CLE",
     "bye": null,
     "id": "diontae-johnson_wr"
   },
@@ -2517,7 +2517,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "LAR",
     "bye": null,
     "id": "matthew-stafford_qb"
   },
@@ -2530,7 +2530,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "ATL",
     "bye": null,
     "id": "michael-penix_qb"
   },
@@ -2543,7 +2543,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "CAR",
     "bye": null,
     "id": "bryce-young_qb"
   },
@@ -2556,7 +2556,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "OAK",
     "bye": null,
     "id": "geno-smith_qb"
   },
@@ -2569,7 +2569,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": [],
-    "team": null,
+    "team": "MIN",
     "bye": null,
     "id": "sam-darnold_qb"
   },
@@ -2582,7 +2582,7 @@
     "previousRank": null,
     "rankChange": null,
     "annotations": ["improved o-line"],
-    "team": null,
+    "team": "TEN",
     "bye": null,
     "id": "elic-ayomanor_wr"
   },

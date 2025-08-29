@@ -1,7 +1,7 @@
 // src/stores/players.ts
 import { defineStore } from "pinia";
 import baselineRaw from "@data/players_8_4_2025_enriched_full_updated.json";
-import currentRaw from "@data/players_8_24_2025_with_DST.json";
+import currentRaw from "@data/players_8_29_2025_enriched_full_updated.json";
 import type { Annotation } from "@/types/annotations";
 
 export interface Player {
